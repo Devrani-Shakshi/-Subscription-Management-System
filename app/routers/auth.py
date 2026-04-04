@@ -7,6 +7,7 @@ POST /auth/logout
 POST /auth/seed
 POST /auth/invite/accept
 POST /auth/register
+POST /auth/revoke-all
 
 Every endpoint ≤ 10 lines. All logic in AuthService.
 """
@@ -18,15 +19,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.dependencies.db import get_db_no_tenant
-from app.exceptions.base import ForbiddenException
+from app.dependencies.guards import get_current_user, get_tenant_session
+from app.exceptions.base import AuthException, ForbiddenException
 from app.schemas.auth import (
     InviteAcceptSchema,
     LoginResponse,
     LoginSchema,
     RegisterSchema,
     SeedSchema,
+    TokenPayload,
 )
 from app.services.auth import AuthService
+from app.services.portal import PortalService
 from app.services.rate_limit import RateLimitService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -82,7 +86,6 @@ async def refresh(
     """Rotate refresh token → new access + refresh cookie."""
     old_refresh = request.cookies.get("refresh_token")
     if not old_refresh:
-        from app.exceptions.base import AuthException
         raise AuthException("No refresh token.")
 
     await RateLimitService.check_refresh("unknown")
@@ -154,9 +157,43 @@ async def invite_accept(
 @router.post("/register", status_code=201)
 async def register(
     body: RegisterSchema,
+    request: Request,
     db: AsyncSession = Depends(get_db_no_tenant),
-) -> dict:
-    """Self-register as portal_user under a tenant."""
+) -> Response:
+    """Self-register as portal_user under a tenant. Auto-login on success."""
+    ip = _get_client_ip(request)
     svc = AuthService(db)
     user = await svc.register_portal(body)
-    return {"id": str(user.id), "email": user.email, "role": user.role.value}
+
+    # Auto-login: issue tokens immediately
+    login_result = await svc.login_user_direct(user, ip)
+
+    response = Response(
+        content=LoginResponse(
+            access_token=login_result["access_token"],
+            role=login_result["role"],
+            tenant_id=login_result["tenant_id"],
+        ).model_dump_json(),
+        media_type="application/json",
+        status_code=201,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=login_result["refresh_token"],
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path="/auth/refresh",
+    )
+    return response
+
+
+@router.post("/revoke-all")
+async def revoke_all_devices(
+    user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Revoke all sessions for the current user across all devices."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.revoke_all_sessions()

@@ -289,6 +289,45 @@ class AuthService(BaseService):
         except Exception:
             pass  # Logout is always successful from client perspective
 
+    # ── LOGIN USER DIRECT (no password check) ────────────────────
+    async def login_user_direct(self, user: User, ip: str) -> dict:
+        """
+        Issue tokens for an already-verified user.
+
+        Used after self-registration to auto-login without re-authenticating.
+        """
+        access = create_access_token(
+            user_id=user.id,
+            role=user.role.value,
+            tenant_id=user.tenant_id,
+            email=user.email,
+        )
+        family_id = uuid.uuid4()
+        refresh = create_refresh_token(
+            user_id=user.id, family_id=family_id
+        )
+
+        await self._create_session(
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            refresh_token=refresh,
+            family_id=family_id,
+            ip=ip,
+        )
+
+        await TokenFamilyService.register(
+            family_id=family_id,
+            refresh_token=refresh,
+            ttl_seconds=_REFRESH_TTL,
+        )
+
+        return {
+            "access_token": access,
+            "refresh_token": refresh,
+            "role": user.role.value,
+            "tenant_id": user.tenant_id,
+        }
+
     # ═════════════════════════════════════════════════════════════
     # Private helpers
     # ═════════════════════════════════════════════════════════════

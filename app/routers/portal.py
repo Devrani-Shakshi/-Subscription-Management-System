@@ -2,11 +2,24 @@
 Portal router — portal_user only.
 
 Endpoints:
-  GET   /portal/me                       — current user profile
-  GET   /portal/invoices                 — list own invoices
-  GET   /portal/invoices/{id}            — get own invoice
-  GET   /portal/invoices/{id}/pdf        — download own invoice PDF
-  POST  /portal/invoices/{id}/pay        — pay an invoice
+  GET   /portal/me                              — current user profile (basic)
+  GET   /portal/profile                         — full profile
+  PATCH /portal/profile                         — update name
+  PATCH /portal/profile/address                 — update billing address
+  POST  /portal/profile/change-password         — change password
+  GET   /portal/my-subscription                 — subscription dashboard
+  GET   /portal/my-subscription/change-plan/preview — preview plan change
+  POST  /portal/my-subscription/change-plan     — execute plan change
+  POST  /portal/my-subscription/cancel          — cancel subscription
+  GET   /portal/invoices                        — list own invoices
+  GET   /portal/invoices/{id}                   — get own invoice
+  GET   /portal/invoices/{id}/pdf               — download own invoice PDF
+  POST  /portal/invoices/{id}/pay               — pay an invoice
+  GET   /portal/payments                        — payment history
+  GET   /portal/sessions                        — list active sessions
+  DELETE /portal/sessions/{id}                  — revoke a session
+
+Every endpoint ≤ 10 lines. All logic in services.
 """
 
 from __future__ import annotations
@@ -29,9 +42,25 @@ from app.schemas.billing import (
     PaymentResponse,
     PortalPayRequest,
 )
+from app.schemas.portal import (
+    PasswordChangeRequest,
+    PortalAddressUpdateRequest,
+    PortalPaymentListResponse,
+    PortalProfileResponse,
+    PortalProfileUpdateRequest,
+    SessionListResponse,
+)
+from app.schemas.subscription import (
+    CancelRequest,
+    ChangePlanPreviewResponse,
+    ChangePlanRequest,
+    PortalSubscriptionResponse,
+)
 from app.services.billing.invoice_service import InvoiceService
 from app.services.billing.payment_service import PaymentService
 from app.services.billing.pdf_generator import InvoicePDFGenerator
+from app.services.portal import PortalService
+from app.services.subscriptions.portal import PortalSubscriptionService
 
 router = APIRouter(
     prefix="/portal",
@@ -87,14 +116,16 @@ def _payment_to_response(p) -> PaymentResponse:
     )
 
 
-# ── Profile ──────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+# Profile
+# ═══════════════════════════════════════════════════════════════
 
 
 @router.get("/me")
 async def get_me(
     user: TokenPayload = Depends(require_portal_user),
 ) -> dict:
-    """Return authenticated portal_user profile."""
+    """Return basic authenticated portal_user info."""
     return {
         "user_id": str(user.user_id),
         "email": user.email,
@@ -103,8 +134,99 @@ async def get_me(
     }
 
 
+@router.get("/profile", response_model=PortalProfileResponse)
+async def get_profile(
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> PortalProfileResponse:
+    """Return full portal_user profile."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.get_profile()
+
+
+@router.patch("/profile", response_model=PortalProfileResponse)
+async def update_profile(
+    body: PortalProfileUpdateRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> PortalProfileResponse:
+    """Update portal_user name."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.update_profile(body)
+
+
+@router.patch("/profile/address", response_model=PortalProfileResponse)
+async def update_address(
+    body: PortalAddressUpdateRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> PortalProfileResponse:
+    """Update billing address."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.update_address(body)
+
+
+@router.post("/profile/change-password")
+async def change_password(
+    body: PasswordChangeRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Change password (verifies current password)."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.change_password(body)
+
+
 # ═══════════════════════════════════════════════════════════════
-# Invoice Endpoints (portal — read-only + pay)
+# Subscription
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/my-subscription")
+async def get_my_subscription(
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Get portal_user's active subscription with plan + lines + invoices."""
+    svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
+    return await svc.get_my_subscription()
+
+
+@router.get("/my-subscription/change-plan/preview")
+async def change_plan_preview(
+    plan_id: UUID = Query(..., description="Target plan UUID"),
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Preview a plan change (upgrade/downgrade)."""
+    svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
+    return await svc.change_plan_preview(plan_id)
+
+
+@router.post("/my-subscription/change-plan")
+async def change_plan(
+    body: ChangePlanRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Execute a plan change (upgrade immediately, downgrade scheduled)."""
+    svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
+    return await svc.change_plan(body.plan_id)
+
+
+@router.post("/my-subscription/cancel")
+async def cancel_subscription(
+    body: CancelRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Cancel portal_user's subscription."""
+    svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
+    return await svc.cancel(body.reason)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Invoice Endpoints
 # ═══════════════════════════════════════════════════════════════
 
 
@@ -174,3 +296,46 @@ async def pay_invoice(
         method=body.method,
     )
     return _payment_to_response(payment)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Payment History
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/payments", response_model=PortalPaymentListResponse)
+async def list_payments(
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+) -> PortalPaymentListResponse:
+    """Payment history for the authenticated customer."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.list_payments(offset=offset, limit=limit)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Session Management
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/sessions", response_model=SessionListResponse)
+async def list_sessions(
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> SessionListResponse:
+    """List all active sessions."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.list_sessions()
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_session(
+    session_id: UUID,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Revoke a specific session."""
+    svc = PortalService(db, user.user_id, user.tenant_id)
+    return await svc.revoke_session(session_id)

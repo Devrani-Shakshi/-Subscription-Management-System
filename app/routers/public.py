@@ -12,9 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.db import get_db_no_tenant
-from app.exceptions.base import NotFoundException
+from app.exceptions.base import ForbiddenException, NotFoundException
 from app.models.plan import Plan
 from app.models.tenant import Tenant
+from app.core.enums import TenantStatus
 from app.schemas.auth import TenantPublicSchema
 from app.schemas.company import PlanPreviewResponse
 from app.services.tenant import TenantService
@@ -27,14 +28,22 @@ async def get_tenant_branding(
     slug: str,
     db: AsyncSession = Depends(get_db_no_tenant),
 ) -> TenantPublicSchema:
-    """Public: tenant branding for login screen."""
+    """Public: tenant branding for login/register screen."""
     svc = TenantService(db)
     tenant = await svc.get_tenant_by_slug(slug)
+
+    # Check suspension — return friendly message
+    if tenant.status == TenantStatus.SUSPENDED:
+        raise ForbiddenException(
+            f"{tenant.name}'s services are temporarily unavailable. "
+            f"Please contact {tenant.name} for assistance."
+        )
+
     return TenantPublicSchema(
         name=tenant.name,
         slug=tenant.slug,
-        logo_url=None,
-        primary_color=None,
+        logo_url=getattr(tenant, "logo_url", None),
+        primary_color=getattr(tenant, "primary_color", None),
     )
 
 
@@ -54,6 +63,13 @@ async def list_public_plans(
     tenant_obj = result.scalar_one_or_none()
     if tenant_obj is None:
         raise NotFoundException("Tenant not found.")
+
+    # Check suspension
+    if tenant_obj.status == TenantStatus.SUSPENDED:
+        raise ForbiddenException(
+            f"{tenant_obj.name}'s services are temporarily unavailable. "
+            f"Please contact {tenant_obj.name} for assistance."
+        )
 
     # Fetch active plans
     plans_result = await db.execute(
