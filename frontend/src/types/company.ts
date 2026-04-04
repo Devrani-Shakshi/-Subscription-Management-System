@@ -204,3 +204,126 @@ export interface TaxFormData {
   rate: number;
   type: string;
 }
+
+// ── Dashboard ───────────────────────────────────────────────
+export interface MetricItem {
+  name: string;
+  value: string;
+  raw_value: string;
+  trend: 'up' | 'down' | 'flat';
+  delta: string;
+  period: string;
+}
+
+export interface DashboardMetrics {
+  metrics: Record<string, MetricItem>;
+}
+
+export interface MonthlySubData {
+  month: string;
+  count: number;
+}
+
+export interface MrrDataPoint {
+  month: string;
+  mrr: number;
+}
+
+export interface AtRiskCustomer {
+  id: string;
+  name: string;
+  email: string;
+  score: number;
+  risk_level: 'high' | 'medium' | 'low';
+}
+
+export interface ActiveDunning {
+  id: string;
+  invoice_number: string;
+  customer_name: string;
+  attempt: number;
+  next_retry: string;
+  status: string;
+}
+
+export interface RecentActivity {
+  id: string;
+  entity_type: string;
+  action: string;
+  entity_id: string;
+  description: string;
+  created_at: string;
+}
+
+export interface DashboardData {
+  metrics: Record<string, MetricItem>;
+  subscriptions_chart: MonthlySubData[];
+  mrr_chart: MrrDataPoint[];
+  at_risk_customers: AtRiskCustomer[];
+  active_dunning: ActiveDunning[];
+  recent_activity: RecentActivity[];
+}
+
+// ── Churn Page ──────────────────────────────────────────────
+export interface ChurnSignalDetail {
+  key: string;
+  weight: number;
+  triggered: boolean;
+  detail: string;
+}
+
+export interface ChurnScoreEntry {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_email: string;
+  plan_name?: string;
+  score: number;
+  risk_level: 'high' | 'medium' | 'low';
+  signals: ChurnSignalDetail[];
+  last_active?: string;
+  computed_at: string;
+}
+
+export interface ChurnFilters {
+  risk_level?: string;
+  plan_id?: string;
+  page: number;
+  limit: number;
+  min_score?: number;
+}
+
+export interface ChurnStats {
+  high: number;
+  medium: number;
+  low: number;
+}
+
+// ── Audit Page ──────────────────────────────────────────────
+export type AuditAction = 'create' | 'update' | 'delete' | 'status_change';
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string;
+  actor_name: string | null;
+  actor_role: string;
+  entity_type: string;
+  entity_id: string;
+  action: AuditAction;
+  diff_json: Record<string, DiffField>;
+  created_at: string;
+}
+
+export interface DiffField {
+  old: string | number | boolean | null;
+  new: string | number | boolean | null;
+}
+
+export interface AuditFilters {
+  entity_type?: string;
+  action?: string;
+  date_from?: string;
+  date_to?: string;
+  page: number;
+  page_size: number;
+}

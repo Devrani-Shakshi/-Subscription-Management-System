@@ -33,6 +33,8 @@ import { InvoiceDetailPage } from '@/pages/company/InvoiceDetailPage';
 import { PaymentsPage } from '@/pages/company/PaymentsPage';
 import { DunningPage } from '@/pages/company/DunningPage';
 import { RevenuePage } from '@/pages/company/RevenuePage';
+import { ChurnPage } from '@/pages/company/ChurnPage';
+import { AuditPage } from '@/pages/company/AuditPage';
 import { PortalDashboard } from '@/pages/portal/PortalDashboard';
 
 const RoleRedirect: React.FC = () => {
@@ -128,10 +130,10 @@ const App: React.FC = () => {
               <Route path="/company/discounts" element={<DiscountsPage />} />
               <Route path="/company/taxes" element={<TaxesPage />} />
               <Route path="/company/templates" element={<TemplatesPage />} />
-              <Route path="/company/churn" element={<CompanyDashboard />} />
+              <Route path="/company/churn" element={<ChurnPage />} />
               <Route path="/company/dunning" element={<DunningPage />} />
               <Route path="/company/revenue" element={<RevenuePage />} />
-              <Route path="/company/audit" element={<CompanyDashboard />} />
+              <Route path="/company/audit" element={<AuditPage />} />
             </Route>
           </Route>
 
