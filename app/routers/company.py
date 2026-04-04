@@ -6,25 +6,33 @@ tenant_id always read from request.state.tenant (via JWT middleware).
 Every endpoint ≤ 10 lines. All logic in services.
 
 Routes:
-  Products:   GET/POST /products · GET/PATCH/DELETE /products/{id}
-              GET/POST /products/{id}/variants
-              DELETE   /products/{id}/variants/{variant_id}
-  Plans:      GET/POST /plans · GET/PATCH/DELETE /plans/{id}
-              GET      /plans/{id}/preview
-  Customers:  GET /customers · GET /customers/{id}
-              POST /customers/invite
-  Templates:  GET/POST /templates · GET/PATCH/DELETE /templates/{id}
-  Discounts:  GET/POST /discounts · GET/PATCH/DELETE /discounts/{id}
-  Taxes:      GET/POST /taxes · GET/PATCH/DELETE /taxes/{id}
+  Products:      GET/POST /products · GET/PATCH/DELETE /products/{id}
+                 GET/POST /products/{id}/variants
+                 DELETE   /products/{id}/variants/{variant_id}
+  Plans:         GET/POST /plans · GET/PATCH/DELETE /plans/{id}
+                 GET      /plans/{id}/preview
+  Customers:     GET /customers · GET /customers/{id}
+                 POST /customers/invite
+  Templates:     GET/POST /templates · GET/PATCH/DELETE /templates/{id}
+  Discounts:     GET/POST /discounts · GET/PATCH/DELETE /discounts/{id}
+  Taxes:         GET/POST /taxes · GET/PATCH/DELETE /taxes/{id}
+  Subscriptions: GET/POST /subscriptions · GET/PATCH /subscriptions/{id}
+                 POST /subscriptions/{id}/activate
+                 POST /subscriptions/{id}/close
+                 POST /subscriptions/{id}/upgrade
+                 POST /subscriptions/{id}/downgrade
+                 POST /subscriptions/bulk
 """
 
 from __future__ import annotations
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import SubscriptionStatus
 from app.dependencies.guards import get_tenant_session, require_company
 from app.schemas.auth import TokenPayload
 from app.schemas.company import (
@@ -41,6 +49,13 @@ from app.schemas.company import (
     TemplateUpdate,
     VariantCreate,
 )
+from app.schemas.subscription import (
+    BulkSubscriptionCreate,
+    DowngradeRequest,
+    SubscriptionCreate,
+    SubscriptionUpdate,
+    UpgradeRequest,
+)
 from app.services.company import (
     CustomerService,
     DiscountService,
@@ -48,6 +63,11 @@ from app.services.company import (
     ProductService,
     TaxService,
     TemplateService,
+)
+from app.services.subscriptions import (
+    DowngradeService,
+    SubscriptionService,
+    UpgradeService,
 )
 
 router = APIRouter(
@@ -435,3 +455,135 @@ def _product_to_dict(product) -> dict:
     variants = getattr(product, "variants", None)
     d["variants_count"] = len(variants) if variants else 0
     return d
+
+
+# ═══════════════════════════════════════════════════════════════
+# Subscription service factory
+# ═══════════════════════════════════════════════════════════════
+
+def _sub_svc(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> SubscriptionService:
+    return SubscriptionService(db, user.tenant_id)
+
+
+def _upgrade_svc(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> UpgradeService:
+    return UpgradeService(db, user.tenant_id)
+
+
+def _downgrade_svc(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> DowngradeService:
+    return DowngradeService(db, user.tenant_id)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Subscriptions
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/subscriptions")
+async def list_subscriptions(
+    status: Optional[SubscriptionStatus] = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> list[dict]:
+    items = await svc.list_all(status=status, offset=offset, limit=limit)
+    return [s.to_dict() for s in items]
+
+
+@router.post("/subscriptions", status_code=201)
+async def create_subscription(
+    body: SubscriptionCreate,
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> dict:
+    sub = await svc.create(
+        customer_id=body.customer_id,
+        plan_id=body.plan_id,
+        start_date=body.start_date,
+        expiry_date=body.expiry_date,
+        payment_terms=body.payment_terms,
+        lines=[ln.model_dump() for ln in body.lines],
+    )
+    return sub.to_dict()
+
+
+@router.get("/subscriptions/{sub_id}")
+async def get_subscription(
+    sub_id: UUID,
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> dict:
+    sub = await svc.get_by_id(sub_id)
+    return sub.to_dict()
+
+
+@router.patch("/subscriptions/{sub_id}")
+async def update_subscription(
+    sub_id: UUID,
+    body: SubscriptionUpdate,
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> dict:
+    sub = await svc.update(sub_id, body.model_dump(exclude_unset=True))
+    return sub.to_dict()
+
+
+@router.post("/subscriptions/{sub_id}/activate")
+async def activate_subscription(
+    sub_id: UUID,
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> dict:
+    sub = await svc.activate(sub_id)
+    return sub.to_dict()
+
+
+@router.post("/subscriptions/{sub_id}/close")
+async def close_subscription(
+    sub_id: UUID,
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> dict:
+    sub = await svc.close(sub_id)
+    return sub.to_dict()
+
+
+@router.post("/subscriptions/{sub_id}/upgrade")
+async def upgrade_subscription(
+    sub_id: UUID,
+    body: UpgradeRequest,
+    svc: UpgradeService = Depends(_upgrade_svc),
+) -> dict:
+    return await svc.execute(sub_id, body.new_plan_id)
+
+
+@router.post("/subscriptions/{sub_id}/downgrade")
+async def downgrade_subscription(
+    sub_id: UUID,
+    body: DowngradeRequest,
+    svc: DowngradeService = Depends(_downgrade_svc),
+) -> dict:
+    return await svc.execute(sub_id, body.new_plan_id)
+
+
+@router.post("/subscriptions/bulk", status_code=201)
+async def bulk_create_subscriptions(
+    body: BulkSubscriptionCreate,
+    svc: SubscriptionService = Depends(_sub_svc),
+) -> list[dict]:
+    items_raw = [
+        {
+            "customer_id": it.customer_id,
+            "plan_id": it.plan_id,
+            "start_date": it.start_date,
+            "expiry_date": it.expiry_date,
+            "payment_terms": it.payment_terms,
+            "lines": [ln.model_dump() for ln in it.lines],
+        }
+        for it in body.items
+    ]
+    subs = await svc.bulk_create(items_raw)
+    return [s.to_dict() for s in subs]
+
