@@ -23,3 +23,4 @@ from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.churn_score import ChurnScore  # noqa: F401
 from app.models.dunning_schedule import DunningSchedule  # noqa: F401
 from app.models.revenue_recognition import RevenueRecognition  # noqa: F401
+from app.models.invite_token import InviteToken  # noqa: F401

@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Seed / Invite
+    SEED_SECRET: str = "CHANGE-ME-seed-secret"
+    FRONTEND_URL: str = "http://localhost:8081"
+    INVITE_EXPIRE_HOURS: int = 48
+
     # Idle timeouts (seconds)
     IDLE_TIMEOUT_SUPER_ADMIN: int = 1800   # 30 min
     IDLE_TIMEOUT_COMPANY: int = 1800       # 30 min
