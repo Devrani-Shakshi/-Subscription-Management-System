@@ -128,7 +128,7 @@ async def company_user(db: AsyncSession, tenant):
 
     u = User(
         id=uuid.uuid4(),
-        email=f"admin-{uuid.uuid4().hex[:8]}@acme.test",
+        email=f"admin-{uuid.uuid4().hex[:8]}@acme.example.com",
         password_hash="hashed_pw",
         role=UserRole.COMPANY,
         tenant_id=tenant.id,
@@ -145,7 +145,7 @@ async def portal_user(db: AsyncSession, tenant):
 
     u = User(
         id=uuid.uuid4(),
-        email=f"customer-{uuid.uuid4().hex[:8]}@example.test",
+        email=f"customer-{uuid.uuid4().hex[:8]}@customer.example.com",
         password_hash="hashed_pw",
         role=UserRole.PORTAL_USER,
         tenant_id=tenant.id,
@@ -162,7 +162,7 @@ async def super_admin(db: AsyncSession):
 
     u = User(
         id=uuid.uuid4(),
-        email=f"superadmin-{uuid.uuid4().hex[:8]}@platform.test",
+        email=f"superadmin-{uuid.uuid4().hex[:8]}@platform.example.com",
         password_hash="hashed_pw",
         role=UserRole.SUPER_ADMIN,
         tenant_id=None,
