@@ -1,0 +1,79 @@
+"""
+All application-wide enumerations — single source of truth.
+Used consistently across SQLAlchemy models, Pydantic schemas, and service logic.
+"""
+
+import enum
+
+
+# ── User Roles ───────────────────────────────────────────────────
+class UserRole(str, enum.Enum):
+    SUPER_ADMIN = "super_admin"
+    COMPANY = "company"
+    PORTAL_USER = "portal_user"
+
+
+# ── Tenant Status ────────────────────────────────────────────────
+class TenantStatus(str, enum.Enum):
+    TRIAL = "trial"
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+
+
+# ── Billing ──────────────────────────────────────────────────────
+class BillingPeriod(str, enum.Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+
+
+# ── Subscription ─────────────────────────────────────────────────
+class SubscriptionStatus(str, enum.Enum):
+    DRAFT = "draft"
+    QUOTATION = "quotation"
+    CONFIRMED = "confirmed"
+    ACTIVE = "active"
+    CLOSED = "closed"
+
+
+# ── Invoice ──────────────────────────────────────────────────────
+class InvoiceStatus(str, enum.Enum):
+    DRAFT = "draft"
+    CONFIRMED = "confirmed"
+    PAID = "paid"
+
+
+# ── Payment ──────────────────────────────────────────────────────
+class PaymentMethod(str, enum.Enum):
+    CARD = "card"
+    BANK = "bank"
+    CASH = "cash"
+    OTHER = "other"
+
+
+# ── Discount ─────────────────────────────────────────────────────
+class DiscountType(str, enum.Enum):
+    FIXED = "fixed"
+    PERCENT = "percent"
+
+
+class DiscountAppliesTo(str, enum.Enum):
+    PRODUCT = "product"
+    SUBSCRIPTION = "subscription"
+
+
+# ── Audit ────────────────────────────────────────────────────────
+class AuditAction(str, enum.Enum):
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    STATUS_CHANGE = "status_change"
+
+
+# ── Dunning ──────────────────────────────────────────────────────
+class DunningStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
