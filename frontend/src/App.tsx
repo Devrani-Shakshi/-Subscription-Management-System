@@ -13,6 +13,8 @@ import { InviteAcceptPage } from '@/pages/auth/InviteAcceptPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { UnauthorizedPage } from '@/pages/auth/UnauthorizedPage';
+import { NotFoundPage } from '@/pages/auth/NotFoundPage';
+import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import { DashboardPage as AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { CompaniesPage } from '@/pages/admin/CompaniesPage';
 import { CompanyDetailPage } from '@/pages/admin/CompanyDetailPage';
@@ -92,6 +94,7 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ErrorBoundary>
         <Routes>
           {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
@@ -156,9 +159,10 @@ const App: React.FC = () => {
             </Route>
           </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* 404 catch-all */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </ErrorBoundary>
 
         <ToastConfig />
       </BrowserRouter>

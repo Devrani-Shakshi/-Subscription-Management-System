@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldX, ArrowLeft, LayoutDashboard } from 'lucide-react';
+import { FileQuestion, ArrowLeft, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { useAuthStore } from '@/stores/authStore';
 
-export const UnauthorizedPage: React.FC = () => {
+export const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 
@@ -12,22 +12,23 @@ export const UnauthorizedPage: React.FC = () => {
     ? '/admin'
     : user?.role === 'company'
     ? '/company'
-    : '/portal';
+    : user?.role === 'portal_user'
+    ? '/portal'
+    : '/login';
 
   return (
     <div className="min-h-dvh flex items-center justify-center bg-gray-950 px-4">
       <div className="text-center max-w-md">
-        <div className="h-20 w-20 rounded-2xl bg-red-500/10 border border-red-500/20
+        <div className="h-20 w-20 rounded-2xl bg-violet-500/10 border border-violet-500/20
                         flex items-center justify-center mx-auto mb-6">
-          <ShieldX className="h-10 w-10 text-red-400" />
+          <FileQuestion className="h-10 w-10 text-violet-400" />
         </div>
 
-        <p className="text-7xl font-black text-gray-800 mb-4 select-none">403</p>
+        <p className="text-7xl font-black text-gray-800 mb-4 select-none">404</p>
 
-        <h1 className="text-2xl font-bold text-gray-50 mb-2">Access Denied</h1>
+        <h1 className="text-2xl font-bold text-gray-50 mb-2">Page not found</h1>
         <p className="text-gray-400 mb-8">
-          You don&apos;t have permission to view this page.
-          Contact your administrator if you believe this is a mistake.
+          The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
 
         <div className="flex items-center justify-center gap-3">

@@ -2,12 +2,12 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import type { Role } from '@/types';
 
 const IDLE_TIMEOUTS: Record<Role, number> = {
-  super_admin: 30 * 60 * 1000,
-  company: 20 * 60 * 1000,
-  portal_user: 15 * 60 * 1000,
+  super_admin: 30 * 60 * 1000, // 30 min
+  company: 30 * 60 * 1000,     // 30 min
+  portal_user: 60 * 60 * 1000, // 60 min
 };
 
-const WARNING_BEFORE = 60 * 1000;
+const WARNING_BEFORE = 60 * 1000; // 60 seconds before timeout
 
 interface IdleTimerResult {
   isWarning: boolean;
@@ -32,6 +32,7 @@ export function useIdleTimer(role: Role): IdleTimerResult {
     if (warningRef.current) clearTimeout(warningRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
 
+    // Start warning countdown 60s before timeout
     warningRef.current = setTimeout(() => {
       setIsWarning(true);
       setRemainingSeconds(WARNING_BEFORE / 1000);
@@ -47,13 +48,14 @@ export function useIdleTimer(role: Role): IdleTimerResult {
       }, 1000);
     }, timeout - WARNING_BEFORE);
 
+    // Fire timeout event
     timeoutRef.current = setTimeout(() => {
       window.dispatchEvent(new CustomEvent('idle-timeout'));
     }, timeout);
   }, [timeout]);
 
   useEffect(() => {
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;
+    const events = ['mousemove', 'keydown', 'touchstart', 'mousedown', 'scroll'] as const;
     const handler = () => resetTimer();
 
     events.forEach((event) => window.addEventListener(event, handler));
