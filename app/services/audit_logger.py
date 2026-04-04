@@ -96,7 +96,7 @@ class AuditLogger:
             family_id=uuid.uuid4(),
             device_fingerprint="system",
             ip_subnet="0.0.0.0",
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            expires_at=datetime.utcnow() + timedelta(minutes=1),
         )
         self.db.add(session)
         await self.db.flush()

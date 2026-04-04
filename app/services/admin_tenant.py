@@ -82,7 +82,7 @@ class SuperAdminTenantService(BaseService):
             name=dto.name,
             slug=dto.slug,
             status=TenantStatus.TRIAL,
-            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
+            trial_ends_at=datetime.utcnow() + timedelta(days=14),
         )
         self.db.add(tenant)
         await self.db.flush()
@@ -111,7 +111,7 @@ class SuperAdminTenantService(BaseService):
             email=dto.email,
             role=UserRole.COMPANY,
             token_hash=hash_token(raw_token),
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.utcnow()
             + timedelta(hours=settings.INVITE_EXPIRE_HOURS),
         )
         self.db.add(invite)

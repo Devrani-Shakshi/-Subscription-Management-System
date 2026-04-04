@@ -84,7 +84,7 @@ class LoginInactivitySignal(ChurnSignal):
                 detail="No login history found.",
             )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         # Handle timezone-naive datetimes from SQLite tests
         if last_login.tzinfo is None:
             last_login = last_login.replace(tzinfo=timezone.utc)
@@ -144,7 +144,7 @@ class DowngradeSignal(ChurnSignal):
     ) -> SignalResult:
         from app.models.subscription import Subscription
 
-        cutoff = datetime.now(timezone.utc) - timedelta(
+        cutoff = datetime.utcnow() - timedelta(
             days=self.LOOKBACK_DAYS
         )
 

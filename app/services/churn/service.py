@@ -143,7 +143,7 @@ class ChurnService(BaseService):
     async def compute_for_customer(self, customer: User) -> ChurnScore:
         """Compute and UPSERT churn score for a single customer."""
         score, breakdown = await self._engine.score(customer, self.db)
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         # Check existing
         existing = await self._find_existing_score(customer.id)

@@ -201,7 +201,7 @@ class AuthService(BaseService):
         if invite is None:
             raise NotFoundException("Invalid invite link.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         if invite.used_at is not None:
             raise AppException(
                 "This invite link has already been used.",
@@ -380,7 +380,7 @@ class AuthService(BaseService):
             family_id=family_id,
             device_fingerprint="web",
             ip_subnet=ip.rsplit(".", 1)[0] + ".0" if "." in ip else ip,
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.utcnow()
             + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
         self.db.add(session)
@@ -404,7 +404,7 @@ class AuthService(BaseService):
         session = result.scalar_one_or_none()
         if session:
             session.refresh_token_hash = hash_token(new_token)
-            session.expires_at = datetime.now(timezone.utc) + timedelta(
+            session.expires_at = datetime.utcnow() + timedelta(
                 days=settings.REFRESH_TOKEN_EXPIRE_DAYS
             )
             await self.db.flush()
@@ -418,7 +418,7 @@ class AuthService(BaseService):
             )
         )
         sessions = result.scalars().all()
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         for s in sessions:
             s.revoked_at = now
         await self.db.flush()

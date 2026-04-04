@@ -59,7 +59,7 @@ class PaymentService(BaseService):
             "customer_id": invoice.customer_id,
             "method": method,
             "amount": amount,
-            "paid_at": paid_at or datetime.now(timezone.utc),
+            "paid_at": paid_at or datetime.utcnow(),
         })
 
         await self._update_invoice_paid(invoice, amount)
@@ -102,7 +102,7 @@ class PaymentService(BaseService):
             "customer_id": customer_id,
             "method": method,
             "amount": amount,
-            "paid_at": datetime.now(timezone.utc),
+            "paid_at": datetime.utcnow(),
         })
 
         await self._update_invoice_paid(inv, amount)

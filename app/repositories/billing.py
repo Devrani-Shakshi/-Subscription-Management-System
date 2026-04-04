@@ -163,7 +163,7 @@ class DunningScheduleRepository(BaseRepository[DunningSchedule]):
         query = self._base_query().where(
             and_(
                 DunningSchedule.status == DunningStatus.PENDING,
-                DunningSchedule.scheduled_at <= datetime.now(timezone.utc),
+                DunningSchedule.scheduled_at <= datetime.utcnow(),
             )
         )
         result = await self.db.execute(query)

@@ -200,7 +200,7 @@ class DunningScheduleService(BaseService):
         Called when a payment fails.
         """
         schedules: list[DunningSchedule] = []
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.utcnow()
 
         for idx, step in enumerate(DUNNING_SCHEDULE, start=1):
             schedule = await self._repo.create({

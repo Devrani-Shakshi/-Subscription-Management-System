@@ -57,7 +57,7 @@ class TenantService(BaseService):
             email=dto.email,
             role=UserRole.COMPANY,
             token_hash=hash_token(raw_token),
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.utcnow()
             + timedelta(hours=settings.INVITE_EXPIRE_HOURS),
         )
         self.db.add(invite)
@@ -87,7 +87,7 @@ class TenantService(BaseService):
             email=dto.email,
             role=UserRole.PORTAL_USER,
             token_hash=hash_token(raw_token),
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.utcnow()
             + timedelta(hours=settings.INVITE_EXPIRE_HOURS),
         )
         self.db.add(invite)

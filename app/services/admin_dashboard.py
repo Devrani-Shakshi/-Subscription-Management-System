@@ -72,12 +72,12 @@ class SuperAdminDashboardService(BaseService):
 
         Uses payment records aggregated by month.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         start = now - timedelta(days=months * 30)
 
         query = (
             select(
-                func.strftime("%Y-%m", Payment.paid_at).label("month"),
+                func.to_char(Payment.paid_at, 'YYYY-MM').label("month"),
                 func.coalesce(func.sum(Payment.amount), 0).label("rev"),
                 func.count(func.distinct(Payment.tenant_id)).label("cnt"),
             )
@@ -87,8 +87,8 @@ class SuperAdminDashboardService(BaseService):
                     Payment.deleted_at.is_(None),
                 )
             )
-            .group_by(func.strftime("%Y-%m", Payment.paid_at))
-            .order_by(func.strftime("%Y-%m", Payment.paid_at))
+            .group_by(func.to_char(Payment.paid_at, 'YYYY-MM'))
+            .order_by(func.to_char(Payment.paid_at, 'YYYY-MM'))
         )
 
         result = await self.db.execute(query)
@@ -124,8 +124,8 @@ class SuperAdminDashboardService(BaseService):
         total_active_subs = await self._subs.count_active_total()
 
         # New companies this month
-        now = datetime.now(timezone.utc)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0)
+        now = datetime.utcnow()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         new_q = (
             select(func.count())
             .select_from(Tenant)
@@ -197,7 +197,7 @@ class SuperAdminDashboardService(BaseService):
     async def _build_alerts(self) -> list[AlertItem]:
         """Build platform alerts (trials expiring, suspended companies)."""
         alerts: list[AlertItem] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         week_ahead = now + timedelta(days=7)
 
         # Trials expiring within 7 days

@@ -132,7 +132,7 @@ class PortalService(BaseService):
             .where(
                 Session.user_id == self._user_id,
                 Session.revoked_at.is_(None),
-                Session.expires_at > datetime.now(timezone.utc),
+                Session.expires_at > datetime.utcnow(),
             )
             .order_by(Session.created_at.desc())
         )
@@ -167,7 +167,7 @@ class PortalService(BaseService):
         if session is None:
             raise NotFoundException("Session not found.")
 
-        session.revoked_at = datetime.now(timezone.utc)
+        session.revoked_at = datetime.utcnow()
         # Also revoke in Redis
         await TokenFamilyService.revoke_family(session.family_id)
         await self.db.flush()
@@ -186,7 +186,7 @@ class PortalService(BaseService):
         result = await self.db.execute(query)
         sessions = result.scalars().all()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         revoked_count = 0
         for s in sessions:
             if exclude_family_id and s.family_id == exclude_family_id:

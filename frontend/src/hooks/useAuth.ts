@@ -29,8 +29,23 @@ export function useTenantBranding(slug: string | null) {
 export function useLogin() {
   return useMutation({
     mutationFn: async (data: LoginRequest) => {
-      const response = await api.post<AuthResponse>('/auth/login', data);
-      return response.data.data;
+      const response = await api.post('/auth/login', data);
+      // Backend returns { access_token, role, tenant_id } directly
+      const raw = response.data;
+
+      // Decode the JWT payload to extract user info
+      const payload = JSON.parse(atob(raw.access_token.split('.')[1]));
+
+      return {
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.email.split('@')[0], // name not in JWT, fallback
+          role: raw.role,
+          tenantId: raw.tenant_id || null,
+        },
+        accessToken: raw.access_token,
+      };
     },
   });
 }

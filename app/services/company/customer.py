@@ -106,7 +106,7 @@ class CustomerService:
             )
 
         # Check for pending (unused, unexpired) invite
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         pending = await self.db.execute(
             select(InviteToken).where(
                 InviteToken.email == dto.email,

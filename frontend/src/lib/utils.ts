@@ -24,10 +24,11 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 export function formatCurrency(
-  amount: number,
+  amount: number | undefined | null,
   currency = 'USD',
   locale = 'en-US'
 ): string {
+  if (amount == null) return '$0';
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
@@ -44,10 +45,12 @@ export function formatNumber(
 }
 
 export function formatDate(
-  date: string | Date,
+  date: string | Date | undefined | null,
   options?: Intl.DateTimeFormatOptions
 ): string {
+  if (!date) return '—';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
