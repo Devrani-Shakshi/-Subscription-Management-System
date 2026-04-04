@@ -24,7 +24,8 @@ function SkeletonRow({ cols }: { cols: number }) {
   );
 }
 
-export function DataTable<T extends object>({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function DataTable<T extends Record<string, any>>({
   columns,
   data,
   loading = false,

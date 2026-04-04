@@ -21,6 +21,13 @@ import { CompanyDashboard } from '@/pages/company/CompanyDashboard';
 import { SubscriptionsPage } from '@/pages/company/SubscriptionsPage';
 import { CreateSubscriptionWizard } from '@/pages/company/CreateSubscriptionWizard';
 import { SubscriptionDetailPage } from '@/pages/company/SubscriptionDetailPage';
+import { ProductsPage } from '@/pages/company/ProductsPage';
+import { PlansPage } from '@/pages/company/PlansPage';
+import { CustomersPage } from '@/pages/company/CustomersPage';
+import { CustomerDetailPage } from '@/pages/company/CustomerDetailPage';
+import { TemplatesPage } from '@/pages/company/TemplatesPage';
+import { DiscountsPage } from '@/pages/company/DiscountsPage';
+import { TaxesPage } from '@/pages/company/TaxesPage';
 import { PortalDashboard } from '@/pages/portal/PortalDashboard';
 
 const RoleRedirect: React.FC = () => {
@@ -103,17 +110,18 @@ const App: React.FC = () => {
             <Route element={<AppShell />}>
               <Route path="/company" element={<CompanyDashboard />} />
               <Route path="/company/dashboard" element={<CompanyDashboard />} />
-              <Route path="/company/products" element={<CompanyDashboard />} />
-              <Route path="/company/plans" element={<CompanyDashboard />} />
+              <Route path="/company/products" element={<ProductsPage />} />
+              <Route path="/company/plans" element={<PlansPage />} />
               <Route path="/company/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/company/subscriptions/new" element={<CreateSubscriptionWizard />} />
               <Route path="/company/subscriptions/:id" element={<SubscriptionDetailPage />} />
-              <Route path="/company/customers" element={<CompanyDashboard />} />
+              <Route path="/company/customers" element={<CustomersPage />} />
+              <Route path="/company/customers/:id" element={<CustomerDetailPage />} />
               <Route path="/company/invoices" element={<CompanyDashboard />} />
               <Route path="/company/payments" element={<CompanyDashboard />} />
-              <Route path="/company/discounts" element={<CompanyDashboard />} />
-              <Route path="/company/taxes" element={<CompanyDashboard />} />
-              <Route path="/company/templates" element={<CompanyDashboard />} />
+              <Route path="/company/discounts" element={<DiscountsPage />} />
+              <Route path="/company/taxes" element={<TaxesPage />} />
+              <Route path="/company/templates" element={<TemplatesPage />} />
               <Route path="/company/churn" element={<CompanyDashboard />} />
               <Route path="/company/dunning" element={<CompanyDashboard />} />
               <Route path="/company/revenue" element={<CompanyDashboard />} />
