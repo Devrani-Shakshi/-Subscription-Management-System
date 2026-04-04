@@ -18,6 +18,9 @@ import { CompaniesPage } from '@/pages/admin/CompaniesPage';
 import { CompanyDetailPage } from '@/pages/admin/CompanyDetailPage';
 import { AuditLogPage } from '@/pages/admin/AuditLogPage';
 import { CompanyDashboard } from '@/pages/company/CompanyDashboard';
+import { SubscriptionsPage } from '@/pages/company/SubscriptionsPage';
+import { CreateSubscriptionWizard } from '@/pages/company/CreateSubscriptionWizard';
+import { SubscriptionDetailPage } from '@/pages/company/SubscriptionDetailPage';
 import { PortalDashboard } from '@/pages/portal/PortalDashboard';
 
 const RoleRedirect: React.FC = () => {
@@ -102,7 +105,9 @@ const App: React.FC = () => {
               <Route path="/company/dashboard" element={<CompanyDashboard />} />
               <Route path="/company/products" element={<CompanyDashboard />} />
               <Route path="/company/plans" element={<CompanyDashboard />} />
-              <Route path="/company/subscriptions" element={<CompanyDashboard />} />
+              <Route path="/company/subscriptions" element={<SubscriptionsPage />} />
+              <Route path="/company/subscriptions/new" element={<CreateSubscriptionWizard />} />
+              <Route path="/company/subscriptions/:id" element={<SubscriptionDetailPage />} />
               <Route path="/company/customers" element={<CompanyDashboard />} />
               <Route path="/company/invoices" element={<CompanyDashboard />} />
               <Route path="/company/payments" element={<CompanyDashboard />} />
