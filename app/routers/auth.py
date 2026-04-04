@@ -143,6 +143,58 @@ async def seed(
     return {"id": str(user.id), "email": user.email, "role": user.role.value}
 
 
+@router.get("/invite/validate/{token}")
+async def invite_validate(
+    token: str,
+    db: AsyncSession = Depends(get_db_no_tenant),
+) -> dict:
+    """Validate an invite token and return invite details."""
+    from app.core.security import hash_token
+    from app.models.invite_token import InviteToken
+    from app.models.tenant import Tenant
+    from sqlalchemy import select
+
+    token_hash = hash_token(token)
+    result = await db.execute(
+        select(InviteToken).where(InviteToken.token_hash == token_hash)
+    )
+    invite = result.scalar_one_or_none()
+
+    if invite is None:
+        from app.exceptions.base import NotFoundException
+        raise NotFoundException("Invalid invite link.")
+
+    if invite.used_at is not None:
+        from app.exceptions.base import AppException
+        raise AppException("This invite has already been used.", status_code=410, code="INVITE_USED")
+
+    from datetime import datetime
+    now = datetime.utcnow()
+    exp = invite.expires_at.replace(tzinfo=None) if invite.expires_at.tzinfo else invite.expires_at
+    if exp < now:
+        from app.exceptions.base import AppException
+        raise AppException("Invite link expired.", status_code=410, code="INVITE_EXPIRED")
+
+    # Get company name
+    company_name = "Unknown"
+    if invite.tenant_id:
+        tenant_result = await db.execute(
+            select(Tenant).where(Tenant.id == invite.tenant_id)
+        )
+        tenant = tenant_result.scalar_one_or_none()
+        if tenant:
+            company_name = tenant.name
+
+    return {
+        "data": {
+            "email": invite.email,
+            "invitedBy": "Platform Admin",
+            "role": invite.role.value,
+            "companyName": company_name,
+        }
+    }
+
+
 @router.post("/invite/accept", status_code=201)
 async def invite_accept(
     body: InviteAcceptSchema,

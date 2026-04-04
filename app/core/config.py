@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_LOCKOUT_SECONDS: int = 900       # 15 min
 
+    # ── Email / SMTP ─────────────────────────────────────────────
+    SMTP_HOST: str = ""                    # e.g. "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""                    # e.g. "your-email@gmail.com"
+    SMTP_PASSWORD: str = ""                # Gmail App Password
+    SMTP_FROM: str = ""                    # e.g. "SubManager <noreply@submanager.com>"
+    SMTP_USE_TLS: bool = False
+    SMTP_START_TLS: bool = True
+
     # ── Sentry (error tracking) ──────────────────────────────────
     SENTRY_DSN: str = ""
 

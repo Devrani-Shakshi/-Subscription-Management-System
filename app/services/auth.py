@@ -208,29 +208,31 @@ class AuthService(BaseService):
                 status_code=410,
                 code="INVITE_USED",
             )
-        if invite.expires_at.replace(tzinfo=timezone.utc) < now:
+        exp = invite.expires_at.replace(tzinfo=None) if invite.expires_at.tzinfo else invite.expires_at
+        if exp < now:
             raise AppException(
                 "Invite link expired. Request a new one.",
                 status_code=410,
                 code="INVITE_EXPIRED",
             )
 
-        # Check email not already registered
+        # Check if user already exists (company creation pre-creates user)
         existing = await self._find_user_by_email(invite.email)
         if existing:
-            raise ConflictException(
-                "An account with this email already exists."
+            # Update the existing user with password and name
+            existing.password_hash = hash_password(dto.password)
+            existing.name = dto.name
+            user = existing
+        else:
+            # Create new user (portal_user invite flow)
+            user = User(
+                email=invite.email,
+                password_hash=hash_password(dto.password),
+                role=invite.role,
+                tenant_id=invite.tenant_id,
+                name=dto.name,
             )
-
-        # Create user
-        user = User(
-            email=invite.email,
-            password_hash=hash_password(dto.password),
-            role=invite.role,
-            tenant_id=invite.tenant_id,
-            name=dto.name,
-        )
-        self.db.add(user)
+            self.db.add(user)
 
         # If company role, set as tenant owner
         if invite.role == UserRole.COMPANY and invite.tenant_id:

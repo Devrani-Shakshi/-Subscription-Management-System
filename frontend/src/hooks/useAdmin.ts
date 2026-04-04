@@ -84,10 +84,31 @@ export function useCompanies(filters: AdminCompanyFilters) {
       if (filters.status) params.status = filters.status;
       if (filters.search) params.search = filters.search;
 
-      const res = await api.get<
-        ApiResponse<AdminCompanySummary[]>
-      >('/admin/companies', { params });
-      return res.data;
+      const res = await api.get('/admin/companies', { params });
+      const raw = res.data;
+
+      // Map backend {items, total, page, page_size} → frontend {data, meta}
+      const items = (raw.items || []).map((c: Record<string, unknown>) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        status: c.status,
+        mrr: Number(c.mrr) || 0,
+        activeSubs: c.active_subs_count ?? 0,
+        trialEnds: c.trial_ends_at || null,
+        createdAt: c.created_at || '',
+        ownerEmail: '',
+        hasActiveSubscriptions: (c.active_subs_count as number) > 0,
+      }));
+
+      return {
+        data: items,
+        meta: {
+          total: raw.total ?? 0,
+          page: raw.page ?? 1,
+          limit: raw.page_size ?? filters.limit,
+        },
+      };
     },
     staleTime: 30_000,
   });

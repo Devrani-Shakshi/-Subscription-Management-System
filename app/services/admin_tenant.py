@@ -13,6 +13,7 @@ All operations use SuperAdminRepository (no tenant filter).
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -45,6 +46,8 @@ from app.schemas.admin import (
 )
 from app.services.audit_logger import AuditLogger
 from app.services.base import BaseService
+
+logger = logging.getLogger(__name__)
 
 
 class SuperAdminTenantService(BaseService):
@@ -128,11 +131,24 @@ class SuperAdminTenantService(BaseService):
             after={"name": dto.name, "slug": dto.slug, "email": dto.email},
         )
 
+        # 5. Send invite email (best-effort, don't fail the request)
+        invite_url = f"{settings.FRONTEND_URL}/invite/{raw_token}"
+        try:
+            from app.services.email import send_invite_email
+            await send_invite_email(
+                to=dto.email,
+                company_name=dto.name,
+                invite_url=invite_url,
+                role="company",
+            )
+        except Exception:
+            logger.warning("Failed to send invite email to %s", dto.email)
+
         return CompanyCreateResponse(
             tenant_id=tenant.id,
             name=tenant.name,
             slug=tenant.slug,
-            invite_url=f"{settings.FRONTEND_URL}/invite/{raw_token}",
+            invite_url=invite_url,
             invite_token=raw_token,
         )
 
