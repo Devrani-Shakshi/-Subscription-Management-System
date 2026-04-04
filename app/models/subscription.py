@@ -49,7 +49,8 @@ class Subscription(BaseModel):
         SAEnum(
             SubscriptionStatus,
             name="subscription_status",
-            create_constraint=True,
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
         ),
         default=SubscriptionStatus.DRAFT,
         nullable=False,

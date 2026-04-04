@@ -27,7 +27,12 @@ class InviteToken(BaseModel):
     )
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="user_role", create_constraint=False),
+        SAEnum(
+            UserRole,
+            name="user_role",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)

@@ -43,3 +43,6 @@ desktop.ini
 # ── Logs ────────────────────────────────────────────────────────
 *.log
 logs/
+*.error
+test_output.txt
+seed*.py

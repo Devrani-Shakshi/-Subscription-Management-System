@@ -32,7 +32,12 @@ class AuditLog(BaseModel):
         nullable=False,
     )
     actor_role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="user_role", create_constraint=False),
+        SAEnum(
+            UserRole,
+            name="user_role",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
     )
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -40,7 +45,12 @@ class AuditLog(BaseModel):
         PG_UUID(as_uuid=True), nullable=False
     )
     action: Mapped[AuditAction] = mapped_column(
-        SAEnum(AuditAction, name="audit_action", create_constraint=True),
+        SAEnum(
+            AuditAction,
+            name="audit_action",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
     )
     diff_json: Mapped[dict[str, Any]] = mapped_column(

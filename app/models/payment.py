@@ -43,7 +43,10 @@ class Payment(BaseModel):
     )
     method: Mapped[PaymentMethod] = mapped_column(
         SAEnum(
-            PaymentMethod, name="payment_method", create_constraint=True
+            PaymentMethod,
+            name="payment_method",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
         ),
         nullable=False,
     )

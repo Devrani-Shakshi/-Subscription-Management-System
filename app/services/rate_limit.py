@@ -10,8 +10,12 @@ Patterns:
 
 from __future__ import annotations
 
+import logging
+
 from app.core.redis import get_redis
 from app.exceptions.base import RateLimitException
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimitService:
@@ -28,17 +32,25 @@ class RateLimitService:
         Increment counter for *key*. Raise 429 if over limit.
 
         Redis key: ``rl:{key}`` with TTL = window_seconds.
+        Falls back to no-op if Redis is unavailable (dev mode).
         """
-        redis = await get_redis()
-        rk = f"rl:{key}"
-        current = await redis.incr(rk)
-        if current == 1:
-            await redis.expire(rk, window_seconds)
-        if current > max_attempts:
-            ttl = await redis.ttl(rk)
-            raise RateLimitException(
-                f"Too many requests. Retry after {ttl}s.",
-                extra={"retry_after": ttl},
+        try:
+            redis = await get_redis()
+            rk = f"rl:{key}"
+            current = await redis.incr(rk)
+            if current == 1:
+                await redis.expire(rk, window_seconds)
+            if current > max_attempts:
+                ttl = await redis.ttl(rk)
+                raise RateLimitException(
+                    f"Too many requests. Retry after {ttl}s.",
+                    extra={"retry_after": ttl},
+                )
+        except RateLimitException:
+            raise  # re-raise 429s as-is
+        except Exception:
+            logger.warning(
+                "Redis unavailable — rate limiting skipped for key=%s", key
             )
 
     @staticmethod

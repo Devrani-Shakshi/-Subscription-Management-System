@@ -36,7 +36,12 @@ class Plan(BaseModel):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     billing_period: Mapped[BillingPeriod] = mapped_column(
-        SAEnum(BillingPeriod, name="billing_period", create_constraint=True),
+        SAEnum(
+            BillingPeriod,
+            name="billing_period",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
     )
     min_qty: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

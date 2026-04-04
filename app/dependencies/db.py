@@ -32,9 +32,10 @@ async def get_db(
     """
     async with async_session_factory() as session:
         try:
+            # Use set_config to safely pass parameters to the session-scoped GUC
             rls_value = str(tenant_id) if tenant_id else "SUPER"
             await session.execute(
-                text("SET LOCAL app.tenant_id = :tid"),
+                text("SELECT set_config('app.tenant_id', :tid, true)"),
                 {"tid": rls_value},
             )
             yield session

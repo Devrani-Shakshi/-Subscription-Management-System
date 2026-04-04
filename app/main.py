@@ -35,6 +35,9 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     """Startup / shutdown lifecycle."""
+    from app.core.redis import get_redis
+    # Eagerly initialize Redis (to trigger fallback if it's down)
+    await get_redis()
     yield
     await close_redis()
 
@@ -89,3 +92,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+ 

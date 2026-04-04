@@ -30,7 +30,12 @@ class Tenant(BaseModel):
         nullable=True,
     )
     status: Mapped[TenantStatus] = mapped_column(
-        SAEnum(TenantStatus, name="tenant_status", create_constraint=True),
+        SAEnum(
+            TenantStatus,
+            name="tenant_status",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         default=TenantStatus.TRIAL,
         nullable=False,
     )

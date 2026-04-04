@@ -230,10 +230,7 @@ def upgrade() -> None:
         sa.Column("features_json", postgresql.JSONB, nullable=False,
                   server_default=sa.text("'{}'::jsonb")),
         sa.Column("flags_json", postgresql.JSONB, nullable=False,
-                  server_default=sa.text(
-                      "'{\"auto_close\":false,\"closable\":true,"
-                      "\"pausable\":false,\"renewable\":true}'::jsonb"
-                  )),
+                  server_default='{"auto_close":false,"closable":true,"pausable":false,"renewable":true}'),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
                   server_default=sa.text("now()")),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),

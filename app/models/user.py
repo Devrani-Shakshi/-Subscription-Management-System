@@ -28,7 +28,12 @@ class User(BaseModel):
         String(256), nullable=True
     )
     role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="user_role", create_constraint=True),
+        SAEnum(
+            UserRole,
+            name="user_role",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
     )
     tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(

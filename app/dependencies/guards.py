@@ -13,6 +13,7 @@ import uuid
 from collections.abc import AsyncGenerator
 
 from fastapi import Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies.db import get_db, get_db_no_tenant
@@ -21,7 +22,13 @@ from app.schemas.auth import TokenPayload
 
 
 # ── Current user ─────────────────────────────────────────────────
-def get_current_user(request: Request) -> TokenPayload:
+security = HTTPBearer()
+
+
+def get_current_user(
+    request: Request,
+    auth: HTTPAuthorizationCredentials = Depends(security),
+) -> TokenPayload:
     """Extract authenticated user from request.state (set by JWTMiddleware)."""
     user = getattr(request.state, "user", None)
     if user is None:

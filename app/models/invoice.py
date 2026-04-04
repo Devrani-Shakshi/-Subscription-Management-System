@@ -52,7 +52,10 @@ class Invoice(BaseModel):
     )
     status: Mapped[InvoiceStatus] = mapped_column(
         SAEnum(
-            InvoiceStatus, name="invoice_status", create_constraint=True
+            InvoiceStatus,
+            name="invoice_status",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
         ),
         default=InvoiceStatus.DRAFT,
         nullable=False,
