@@ -223,3 +223,33 @@ async def export_audit_csv(
             "Content-Disposition": "attachment; filename=audit_log.csv"
         },
     )
+
+
+# ── Health Metrics (Advanced) ───────────────────────────────────
+
+@router.get("/metrics")
+async def get_admin_metrics(
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Platform-wide health metrics (MRR, ARR, NRR, LTV, etc.)."""
+    from app.services.metrics.dashboard import (
+        SuperAdminMetricsDashboardService,
+    )
+
+    svc = SuperAdminMetricsDashboardService(db)
+    return await svc.get_all()
+
+
+# ── Revenue Recognition (Advanced) ─────────────────────────────
+
+@router.get("/revenue-recognition")
+async def get_revenue_recognition_timeline(
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Cross-tenant revenue recognition timeline."""
+    from app.services.revenue.service import CrossTenantRevenueService
+
+    svc = CrossTenantRevenueService(db)
+    timeline = await svc.get_timeline()
+    return {"timeline": timeline}
+

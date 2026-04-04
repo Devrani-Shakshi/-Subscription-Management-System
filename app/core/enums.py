@@ -86,3 +86,31 @@ class DunningAction(str, enum.Enum):
     RETRY = "retry"
     SUSPEND = "suspend"
     CANCEL = "cancel"
+
+
+# ── Bulk Operations ──────────────────────────────────────────────
+class BulkOperationType(str, enum.Enum):
+    ACTIVATE = "activate"
+    CLOSE = "close"
+    APPLY_DISCOUNT = "apply_discount"
+    CHANGE_PLAN = "change_plan"
+
+
+class BulkJobStatus(str, enum.Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+# ── Churn ────────────────────────────────────────────────────────
+class ChurnRiskLevel(str, enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+# ── Revenue Recognition ─────────────────────────────────────────
+class RecognitionType(str, enum.Enum):
+    RATABLE = "ratable"
+    MILESTONE = "milestone"

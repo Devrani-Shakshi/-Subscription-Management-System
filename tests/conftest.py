@@ -51,6 +51,9 @@ from app.models import (  # noqa: F401
     Discount,
     Tax,
     DunningSchedule,
+    ChurnScore,
+    RevenueRecognition,
+    AuditLog,
 )
 
 

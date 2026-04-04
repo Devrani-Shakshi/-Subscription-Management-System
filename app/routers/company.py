@@ -14,16 +14,24 @@ Endpoints:
   POST   /company/invoices/bulk-send        — bulk send invoices
   POST   /company/payments                  — record payment
   GET    /company/payments                  — list payments
+  GET    /company/churn                     — churn score list
+  GET    /company/revenue                   — revenue recognition timeline
+  GET    /company/dashboard                 — health metrics
+  GET    /company/audit                     — audit log
+  GET    /company/audit/export              — audit CSV export
+  POST   /company/subscriptions/bulk        — bulk subscription operations
 """
 
 from __future__ import annotations
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import AuditAction, BulkOperationType
 from app.dependencies.guards import get_tenant_session, require_company
 from app.schemas.auth import InviteCustomerSchema, TokenPayload
 from app.schemas.billing import (
@@ -35,6 +43,19 @@ from app.schemas.billing import (
     PaymentCreateRequest,
     PaymentListResponse,
     PaymentResponse,
+)
+from app.schemas.advanced import (
+    BulkOperationRequest,
+    BulkOperationResponse,
+    BulkPreviewResponse,
+    ChurnScoreItem,
+    ChurnScoreListResponse,
+    CompanyAuditLogFilter,
+    CompanyAuditLogResponse,
+    CompanyDashboardResponse,
+    MetricItem,
+    RevenueTimelineItem,
+    RevenueTimelineResponse,
 )
 from app.services.billing.invoice_service import InvoiceService
 from app.services.billing.payment_service import PaymentService
@@ -276,3 +297,163 @@ async def list_payments(
         items=[_payment_to_response(p) for p in items],
         total=total,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Churn Prediction
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/churn", response_model=ChurnScoreListResponse)
+async def list_churn_scores(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    min_score: Optional[int] = Query(None, ge=0, le=100),
+) -> ChurnScoreListResponse:
+    """List churn scores sorted by risk (highest first)."""
+    from app.services.churn.service import ChurnService
+
+    svc = ChurnService(db, user.tenant_id)
+    items, total = await svc.list_churn_scores(
+        offset=offset, limit=limit, min_score=min_score,
+    )
+    return ChurnScoreListResponse(
+        items=[ChurnScoreItem(**item) for item in items],
+        total=total,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Revenue Recognition
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/revenue", response_model=RevenueTimelineResponse)
+async def get_revenue_timeline(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> RevenueTimelineResponse:
+    """Revenue recognition timeline for this company."""
+    from app.services.revenue.service import RevenueRecognitionService
+
+    svc = RevenueRecognitionService(db, user.tenant_id)
+    timeline = await svc.get_timeline()
+    return RevenueTimelineResponse(
+        timeline=[RevenueTimelineItem(**t) for t in timeline],
+        total_recognized=str(
+            sum(float(t["recognized"]) for t in timeline)
+        ) if timeline else "0",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Health Dashboard
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/dashboard", response_model=CompanyDashboardResponse)
+async def get_company_dashboard(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> CompanyDashboardResponse:
+    """Health dashboard with KPI metrics."""
+    from app.services.metrics.dashboard import DashboardService
+
+    svc = DashboardService(db, user.tenant_id)
+    raw = await svc.get_all()
+    metrics = {
+        k: MetricItem(name=k, **v) for k, v in raw.items()
+    }
+    return CompanyDashboardResponse(metrics=metrics)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Audit Log (company-scoped)
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/audit", response_model=CompanyAuditLogResponse)
+async def list_company_audit(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    entity_type: Optional[str] = Query(None),
+    action: Optional[AuditAction] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+) -> CompanyAuditLogResponse:
+    """Filterable audit log for this company."""
+    from app.services.company_audit import CompanyAuditService
+
+    filters = CompanyAuditLogFilter(
+        entity_type=entity_type,
+        action=action,
+        page=page,
+        page_size=page_size,
+    )
+    svc = CompanyAuditService(db, user.tenant_id)
+    return await svc.list_audit_logs(filters)
+
+
+@router.get("/audit/export")
+async def export_company_audit_csv(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    entity_type: Optional[str] = Query(None),
+    action: Optional[AuditAction] = Query(None),
+) -> StreamingResponse:
+    """Export company audit log as CSV."""
+    from app.services.company_audit import CompanyAuditService
+
+    filters = CompanyAuditLogFilter(
+        entity_type=entity_type,
+        action=action,
+    )
+    svc = CompanyAuditService(db, user.tenant_id)
+    csv_data = await svc.export_csv(filters)
+    return StreamingResponse(
+        iter([csv_data]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=audit_log.csv"
+        },
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Bulk Operations
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.post("/subscriptions/bulk")
+async def bulk_subscription_operation(
+    body: BulkOperationRequest,
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> BulkPreviewResponse | BulkOperationResponse:
+    """
+    Bulk subscription operation.
+
+    If confirm=False (default): returns conflict preview.
+    If confirm=True: executes the operation and returns result.
+    """
+    from app.services.bulk.executor import BulkExecutor
+
+    executor = BulkExecutor(db, user.tenant_id)
+
+    if not body.confirm:
+        preview = await executor.preview(
+            ids=body.subscription_ids,
+            operation_type=body.operation,
+            params=body.params,
+        )
+        return BulkPreviewResponse(**preview)
+
+    result = await executor.run(
+        ids=body.subscription_ids,
+        operation_type=body.operation,
+        params=body.params,
+        skip_ids=body.skip_ids,
+    )
+    return BulkOperationResponse(**result.to_dict())
