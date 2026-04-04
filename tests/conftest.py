@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, AsyncGenerator
 
@@ -25,7 +25,16 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.enums import BillingPeriod, TenantStatus, UserRole
+from app.core.enums import (
+    BillingPeriod,
+    DiscountType,
+    DiscountAppliesTo,
+    InvoiceStatus,
+    PaymentMethod,
+    SubscriptionStatus,
+    TenantStatus,
+    UserRole,
+)
 from app.models.base import BaseModel
 
 # Force all models into metadata
@@ -37,6 +46,11 @@ from app.models import (  # noqa: F401
     Plan,
     Subscription,
     Invoice,
+    InvoiceLine,
+    Payment,
+    Discount,
+    Tax,
+    DunningSchedule,
 )
 
 
@@ -214,3 +228,179 @@ async def plan(db: AsyncSession, tenant):
     db.add(pl)
     await db.flush()
     return pl
+
+
+# ═══════════════════════════════════════════════════════════════
+# Billing Fixtures
+# ═══════════════════════════════════════════════════════════════
+
+
+@pytest_asyncio.fixture
+async def tax(db: AsyncSession, tenant):
+    from app.models.tax import Tax
+
+    t = Tax(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        name="GST",
+        rate=Decimal("18.00"),
+        type="percentage",
+    )
+    db.add(t)
+    await db.flush()
+    return t
+
+
+@pytest_asyncio.fixture
+async def discount_fixed(db: AsyncSession, tenant):
+    from app.models.discount import Discount
+
+    d = Discount(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        name="$10 Off",
+        type=DiscountType.FIXED,
+        value=Decimal("10.00"),
+        min_purchase=Decimal("0.00"),
+        min_qty=1,
+        start_date=date(2025, 1, 1),
+        end_date=date(2027, 12, 31),
+        usage_limit=100,
+        used_count=0,
+        applies_to=DiscountAppliesTo.SUBSCRIPTION,
+    )
+    db.add(d)
+    await db.flush()
+    return d
+
+
+@pytest_asyncio.fixture
+async def discount_percent(db: AsyncSession, tenant):
+    from app.models.discount import Discount
+
+    d = Discount(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        name="20% Off",
+        type=DiscountType.PERCENT,
+        value=Decimal("20.00"),
+        min_purchase=Decimal("0.00"),
+        min_qty=1,
+        start_date=date(2025, 1, 1),
+        end_date=date(2027, 12, 31),
+        usage_limit=None,
+        used_count=0,
+        applies_to=DiscountAppliesTo.SUBSCRIPTION,
+    )
+    db.add(d)
+    await db.flush()
+    return d
+
+
+@pytest_asyncio.fixture
+async def discount_exhausted(db: AsyncSession, tenant):
+    from app.models.discount import Discount
+
+    d = Discount(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        name="Expired Coupon",
+        type=DiscountType.FIXED,
+        value=Decimal("5.00"),
+        min_purchase=Decimal("0.00"),
+        min_qty=1,
+        start_date=date(2025, 1, 1),
+        end_date=date(2027, 12, 31),
+        usage_limit=1,
+        used_count=1,
+        applies_to=DiscountAppliesTo.SUBSCRIPTION,
+    )
+    db.add(d)
+    await db.flush()
+    return d
+
+
+@pytest_asyncio.fixture
+async def subscription(db: AsyncSession, tenant, portal_user, plan):
+    from app.models.subscription import Subscription
+
+    s = Subscription(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        number=f"SUB-{uuid.uuid4().hex[:6].upper()}",
+        customer_id=portal_user.id,
+        plan_id=plan.id,
+        start_date=date(2026, 1, 1),
+        expiry_date=date(2027, 1, 1),
+        payment_terms="net-30",
+        status=SubscriptionStatus.ACTIVE,
+        discount_id=None,
+    )
+    db.add(s)
+    await db.flush()
+    return s
+
+
+@pytest_asyncio.fixture
+async def subscription_line(db: AsyncSession, tenant, subscription, product):
+    from app.models.subscription_line import SubscriptionLine
+
+    sl = SubscriptionLine(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        subscription_id=subscription.id,
+        product_id=product.id,
+        qty=2,
+        unit_price=Decimal("49.99"),
+        tax_ids=None,
+    )
+    db.add(sl)
+    await db.flush()
+    return sl
+
+
+@pytest_asyncio.fixture
+async def invoice(db: AsyncSession, tenant, subscription, portal_user):
+    from app.models.invoice import Invoice
+
+    inv = Invoice(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        invoice_number="INV-000001",
+        subscription_id=subscription.id,
+        customer_id=portal_user.id,
+        status=InvoiceStatus.DRAFT,
+        due_date=date.today() + timedelta(days=30),
+        subtotal=Decimal("99.98"),
+        tax_total=Decimal("0.00"),
+        discount_total=Decimal("0.00"),
+        total=Decimal("99.98"),
+        amount_paid=Decimal("0.00"),
+    )
+    db.add(inv)
+    await db.flush()
+    return inv
+
+
+@pytest_asyncio.fixture
+async def confirmed_invoice(db: AsyncSession, tenant, subscription, portal_user):
+    from app.models.invoice import Invoice
+
+    inv = Invoice(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        invoice_number="INV-000002",
+        subscription_id=subscription.id,
+        customer_id=portal_user.id,
+        status=InvoiceStatus.CONFIRMED,
+        due_date=date.today() + timedelta(days=30),
+        subtotal=Decimal("99.98"),
+        tax_total=Decimal("0.00"),
+        discount_total=Decimal("0.00"),
+        total=Decimal("99.98"),
+        amount_paid=Decimal("0.00"),
+    )
+    db.add(inv)
+    await db.flush()
+    return inv
+

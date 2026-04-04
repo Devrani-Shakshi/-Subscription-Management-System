@@ -8,11 +8,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.enums import DunningStatus
+from app.core.enums import DunningAction, DunningStatus
 from app.models.base import BaseModel
 
 
@@ -32,6 +32,15 @@ class DunningSchedule(BaseModel):
         index=True,
     )
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[DunningAction] = mapped_column(
+        SAEnum(
+            DunningAction, name="dunning_action", create_constraint=True
+        ),
+        nullable=False,
+    )
+    channel: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="email"
+    )
     scheduled_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -46,8 +55,11 @@ class DunningSchedule(BaseModel):
         JSONB, nullable=False, default=dict
     )
 
+    # ── relationships ────────────────────────────────────────────
+    invoice = relationship("Invoice", lazy="selectin")
+
     def __repr__(self) -> str:
         return (
             f"<DunningSchedule invoice={self.invoice_id} "
-            f"attempt={self.attempt_number}>"
+            f"attempt={self.attempt_number} action={self.action.value}>"
         )

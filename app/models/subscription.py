@@ -62,6 +62,11 @@ class Subscription(BaseModel):
         ForeignKey("plans.id"),
         nullable=True,
     )
+    discount_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("discounts.id"),
+        nullable=True,
+    )
 
     # ── relationships ────────────────────────────────────────────
     lines: Mapped[list["SubscriptionLine"]] = relationship(

@@ -34,6 +34,7 @@ class SubscriptionStatus(str, enum.Enum):
     QUOTATION = "quotation"
     CONFIRMED = "confirmed"
     ACTIVE = "active"
+    PAUSED = "paused"
     CLOSED = "closed"
 
 
@@ -42,6 +43,8 @@ class InvoiceStatus(str, enum.Enum):
     DRAFT = "draft"
     CONFIRMED = "confirmed"
     PAID = "paid"
+    CANCELLED = "cancelled"
+    OVERDUE = "overdue"
 
 
 # ── Payment ──────────────────────────────────────────────────────
@@ -77,3 +80,9 @@ class DunningStatus(str, enum.Enum):
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class DunningAction(str, enum.Enum):
+    RETRY = "retry"
+    SUSPEND = "suspend"
+    CANCEL = "cancel"
