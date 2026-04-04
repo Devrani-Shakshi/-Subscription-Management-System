@@ -35,7 +35,11 @@ import { DunningPage } from '@/pages/company/DunningPage';
 import { RevenuePage } from '@/pages/company/RevenuePage';
 import { ChurnPage } from '@/pages/company/ChurnPage';
 import { AuditPage } from '@/pages/company/AuditPage';
-import { PortalDashboard } from '@/pages/portal/PortalDashboard';
+import { MySubscriptionPage } from '@/pages/portal/MySubscriptionPage';
+import { PlansPage as PortalPlansPage } from '@/pages/portal/PlansPage';
+import { InvoicesPage as PortalInvoicesPage } from '@/pages/portal/InvoicesPage';
+import { PaymentsPage as PortalPaymentsPage } from '@/pages/portal/PaymentsPage';
+import { ProfilePage } from '@/pages/portal/ProfilePage';
 
 const RoleRedirect: React.FC = () => {
   const user = useAuthStore((s) => s.user);
@@ -97,6 +101,9 @@ const App: React.FC = () => {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+          {/* Public plans page */}
+          <Route path="/plans" element={<PortalPlansPage />} />
+
           {/* Role redirect */}
           <Route path="/" element={<RoleRedirect />} />
 
@@ -140,12 +147,12 @@ const App: React.FC = () => {
           {/* Portal user */}
           <Route element={<PrivateRoute allowedRoles={['portal_user']} />}>
             <Route element={<AppShell />}>
-              <Route path="/portal" element={<PortalDashboard />} />
-              <Route path="/portal/my-subscription" element={<PortalDashboard />} />
-              <Route path="/portal/invoices" element={<PortalDashboard />} />
-              <Route path="/portal/payments" element={<PortalDashboard />} />
-              <Route path="/portal/plans" element={<PortalDashboard />} />
-              <Route path="/portal/profile" element={<PortalDashboard />} />
+              <Route path="/portal" element={<Navigate to="/portal/my-subscription" replace />} />
+              <Route path="/portal/my-subscription" element={<MySubscriptionPage />} />
+              <Route path="/portal/plans" element={<PortalPlansPage />} />
+              <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
+              <Route path="/portal/payments" element={<PortalPaymentsPage />} />
+              <Route path="/portal/profile" element={<ProfilePage />} />
             </Route>
           </Route>
 

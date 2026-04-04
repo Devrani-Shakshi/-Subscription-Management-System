@@ -24,3 +24,5 @@ export { ToggleSwitch } from './ToggleSwitch';
 export { ProgressBar } from './ProgressBar';
 export { MobileCard } from './MobileCard';
 export { ScoreBar } from './ScoreBar';
+export { PlanCard } from './PlanCard';
+export { PasswordStrengthMeter } from './PasswordStrengthMeter';
