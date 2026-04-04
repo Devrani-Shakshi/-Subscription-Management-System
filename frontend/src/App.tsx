@@ -28,6 +28,11 @@ import { CustomerDetailPage } from '@/pages/company/CustomerDetailPage';
 import { TemplatesPage } from '@/pages/company/TemplatesPage';
 import { DiscountsPage } from '@/pages/company/DiscountsPage';
 import { TaxesPage } from '@/pages/company/TaxesPage';
+import { InvoicesPage } from '@/pages/company/InvoicesPage';
+import { InvoiceDetailPage } from '@/pages/company/InvoiceDetailPage';
+import { PaymentsPage } from '@/pages/company/PaymentsPage';
+import { DunningPage } from '@/pages/company/DunningPage';
+import { RevenuePage } from '@/pages/company/RevenuePage';
 import { PortalDashboard } from '@/pages/portal/PortalDashboard';
 
 const RoleRedirect: React.FC = () => {
@@ -117,14 +122,15 @@ const App: React.FC = () => {
               <Route path="/company/subscriptions/:id" element={<SubscriptionDetailPage />} />
               <Route path="/company/customers" element={<CustomersPage />} />
               <Route path="/company/customers/:id" element={<CustomerDetailPage />} />
-              <Route path="/company/invoices" element={<CompanyDashboard />} />
-              <Route path="/company/payments" element={<CompanyDashboard />} />
+              <Route path="/company/invoices" element={<InvoicesPage />} />
+              <Route path="/company/invoices/:id" element={<InvoiceDetailPage />} />
+              <Route path="/company/payments" element={<PaymentsPage />} />
               <Route path="/company/discounts" element={<DiscountsPage />} />
               <Route path="/company/taxes" element={<TaxesPage />} />
               <Route path="/company/templates" element={<TemplatesPage />} />
               <Route path="/company/churn" element={<CompanyDashboard />} />
-              <Route path="/company/dunning" element={<CompanyDashboard />} />
-              <Route path="/company/revenue" element={<CompanyDashboard />} />
+              <Route path="/company/dunning" element={<DunningPage />} />
+              <Route path="/company/revenue" element={<RevenuePage />} />
               <Route path="/company/audit" element={<CompanyDashboard />} />
             </Route>
           </Route>
