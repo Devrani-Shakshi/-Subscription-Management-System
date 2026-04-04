@@ -24,7 +24,7 @@ function SkeletonRow({ cols }: { cols: number }) {
   );
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   data,
   loading = false,
@@ -48,8 +48,8 @@ export function DataTable<T extends Record<string, unknown>>({
     if (!sortKey) return data;
 
     return [...data].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
+      const aVal = (a as Record<string, unknown>)[sortKey];
+      const bVal = (b as Record<string, unknown>)[sortKey];
 
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return 1;
@@ -125,7 +125,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     <td key={col.key} className="px-4 py-3 text-gray-200">
                       {col.render
                         ? col.render(row)
-                        : (row[col.key] as React.ReactNode) ?? '—'}
+                        : ((row as Record<string, unknown>)[col.key] as React.ReactNode) ?? '—'}
                     </td>
                   ))}
                 </tr>

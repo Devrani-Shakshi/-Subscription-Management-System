@@ -13,7 +13,10 @@ import { InviteAcceptPage } from '@/pages/auth/InviteAcceptPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { UnauthorizedPage } from '@/pages/auth/UnauthorizedPage';
-import { AdminDashboard } from '@/pages/admin/AdminDashboard';
+import { DashboardPage as AdminDashboard } from '@/pages/admin/AdminDashboard';
+import { CompaniesPage } from '@/pages/admin/CompaniesPage';
+import { CompanyDetailPage } from '@/pages/admin/CompanyDetailPage';
+import { AuditLogPage } from '@/pages/admin/AuditLogPage';
 import { CompanyDashboard } from '@/pages/company/CompanyDashboard';
 import { PortalDashboard } from '@/pages/portal/PortalDashboard';
 
@@ -85,8 +88,9 @@ const App: React.FC = () => {
             <Route element={<AppShell />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/companies" element={<AdminDashboard />} />
-              <Route path="/admin/audit" element={<AdminDashboard />} />
+              <Route path="/admin/companies" element={<CompaniesPage />} />
+              <Route path="/admin/companies/:tenantId" element={<CompanyDetailPage />} />
+              <Route path="/admin/audit" element={<AuditLogPage />} />
               <Route path="/admin/settings" element={<AdminDashboard />} />
             </Route>
           </Route>
