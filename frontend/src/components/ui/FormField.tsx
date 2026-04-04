@@ -3,7 +3,7 @@ import React from 'react';
 interface FormFieldProps {
   label: string;
   name: string;
-  error?: string;
+  error?: React.ReactNode;
   required?: boolean;
   hint?: string;
   children: React.ReactNode;

@@ -8,6 +8,10 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrivateRoute } from '@/components/layout/PrivateRoute';
 import { LoginPage } from '@/pages/auth/LoginPage';
+import { RegisterPage } from '@/pages/auth/RegisterPage';
+import { InviteAcceptPage } from '@/pages/auth/InviteAcceptPage';
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { UnauthorizedPage } from '@/pages/auth/UnauthorizedPage';
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { CompanyDashboard } from '@/pages/company/CompanyDashboard';
@@ -65,8 +69,12 @@ const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
+          {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/invite/:token" element={<InviteAcceptPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
           {/* Role redirect */}
@@ -76,6 +84,7 @@ const App: React.FC = () => {
           <Route element={<PrivateRoute allowedRoles={['super_admin']} />}>
             <Route element={<AppShell />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/companies" element={<AdminDashboard />} />
               <Route path="/admin/audit" element={<AdminDashboard />} />
               <Route path="/admin/settings" element={<AdminDashboard />} />
@@ -86,6 +95,7 @@ const App: React.FC = () => {
           <Route element={<PrivateRoute allowedRoles={['company']} />}>
             <Route element={<AppShell />}>
               <Route path="/company" element={<CompanyDashboard />} />
+              <Route path="/company/dashboard" element={<CompanyDashboard />} />
               <Route path="/company/products" element={<CompanyDashboard />} />
               <Route path="/company/plans" element={<CompanyDashboard />} />
               <Route path="/company/subscriptions" element={<CompanyDashboard />} />
@@ -106,6 +116,7 @@ const App: React.FC = () => {
           <Route element={<PrivateRoute allowedRoles={['portal_user']} />}>
             <Route element={<AppShell />}>
               <Route path="/portal" element={<PortalDashboard />} />
+              <Route path="/portal/my-subscription" element={<PortalDashboard />} />
               <Route path="/portal/invoices" element={<PortalDashboard />} />
               <Route path="/portal/payments" element={<PortalDashboard />} />
               <Route path="/portal/plans" element={<PortalDashboard />} />
