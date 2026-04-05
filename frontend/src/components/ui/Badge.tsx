@@ -52,8 +52,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   variant: overrideVariant,
   className = '',
 }) => {
-  const config = STATUS_MAP[status.toLowerCase()] || {
-    label: status,
+  const safeStatus = status || 'unknown';
+  const config = STATUS_MAP[safeStatus.toLowerCase()] || {
+    label: safeStatus,
     variant: 'neutral' as BadgeVariant,
   };
 

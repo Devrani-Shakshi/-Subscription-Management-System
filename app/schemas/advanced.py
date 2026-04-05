@@ -118,6 +118,11 @@ class CompanyDashboardResponse(BaseModel):
     """Company health dashboard."""
 
     metrics: dict[str, MetricItem]
+    subscriptions_chart: list[dict[str, Any]] = Field(default_factory=list)
+    mrr_chart: list[dict[str, Any]] = Field(default_factory=list)
+    at_risk_customers: list[dict[str, Any]] = Field(default_factory=list)
+    active_dunning: list[dict[str, Any]] = Field(default_factory=list)
+    recent_activity: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ═══════════════════════════════════════════════════════════════

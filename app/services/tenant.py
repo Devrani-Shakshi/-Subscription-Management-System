@@ -63,12 +63,21 @@ class TenantService(BaseService):
         self.db.add(invite)
         await self.db.flush()
 
+        invite_url = f"{settings.FRONTEND_URL}/invite/{raw_token}"
+
+        # Dispatch email
+        from app.services.email import send_invite_email
+        await send_invite_email(
+            to=dto.email,
+            company_name=tenant.name,
+            invite_url=invite_url,
+            role="company"
+        )
+
         return {
             "tenant": tenant.to_dict(),
             "invite_token": raw_token,
-            "invite_url": (
-                f"{settings.FRONTEND_URL}/invite/{raw_token}"
-            ),
+            "invite_url": invite_url,
         }
 
     async def invite_customer(
@@ -93,11 +102,24 @@ class TenantService(BaseService):
         self.db.add(invite)
         await self.db.flush()
 
+        invite_url = f"{settings.FRONTEND_URL}/invite/{raw_token}"
+
+        # Fetch tenant to get company name for the email
+        res = await self.db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant = res.scalar_one()
+
+        # Dispatch email (fire and forget or await)
+        from app.services.email import send_invite_email
+        await send_invite_email(
+            to=dto.email,
+            company_name=tenant.name,
+            invite_url=invite_url,
+            role="portal_user"
+        )
+
         return {
             "invite_token": raw_token,
-            "invite_url": (
-                f"{settings.FRONTEND_URL}/invite/{raw_token}"
-            ),
+            "invite_url": invite_url,
         }
 
     async def get_tenant_by_slug(self, slug: str) -> Tenant:

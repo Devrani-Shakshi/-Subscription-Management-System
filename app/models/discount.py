@@ -28,7 +28,12 @@ class Discount(BaseModel):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[DiscountType] = mapped_column(
-        SAEnum(DiscountType, name="discount_type", create_constraint=True),
+        SAEnum(
+            DiscountType,
+            name="discount_type",
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
     )
     value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
@@ -46,7 +51,8 @@ class Discount(BaseModel):
         SAEnum(
             DiscountAppliesTo,
             name="discount_applies_to",
-            create_constraint=True,
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj],
         ),
         nullable=False,
     )

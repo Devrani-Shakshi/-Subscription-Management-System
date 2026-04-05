@@ -43,7 +43,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           type: product.type,
           sales_price: product.sales_price,
           cost_price: product.cost_price,
-          variants: product.variants.map((v) => ({
+          variants: (product.variants ?? []).map((v) => ({
             attribute: v.attribute,
             value: v.value,
             extra_price: v.extra_price,

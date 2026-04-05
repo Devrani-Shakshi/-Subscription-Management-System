@@ -73,6 +73,8 @@ class Subscription(BaseModel):
     lines: Mapped[list["SubscriptionLine"]] = relationship(
         "SubscriptionLine", back_populates="subscription", lazy="selectin"
     )
+    plan = relationship("Plan", foreign_keys=[plan_id])
+    customer = relationship("User", foreign_keys=[customer_id])
 
     # UniqueConstraint per tenant handled in migration
     __table_args__ = (

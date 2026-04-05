@@ -77,17 +77,27 @@ export const InvoicesPage: React.FC = () => {
     {
       key: 'actions',
       header: 'Actions',
-      render: (r) =>
-        r.status === 'overdue' ? (
-          <Button variant="danger" size="sm" onClick={() => setPayInvoice(r)}
-            icon={<CreditCard className="h-3.5 w-3.5" />}>
-            Pay now
-          </Button>
-        ) : r.status === 'paid' ? (
-          <Button variant="ghost" size="sm" icon={<Download className="h-3.5 w-3.5" />}>
-            Download
-          </Button>
-        ) : null,
+      render: (r) => {
+        const canPay = ['overdue', 'confirmed', 'draft', 'pending'].includes(r.status);
+        const canDownload = r.status === 'paid';
+
+        if (canPay) {
+          return (
+            <Button variant="danger" size="sm" onClick={() => setPayInvoice(r)}
+              icon={<CreditCard className="h-3.5 w-3.5" />}>
+              Pay now
+            </Button>
+          );
+        }
+        if (canDownload) {
+          return (
+            <Button variant="ghost" size="sm" icon={<Download className="h-3.5 w-3.5" />}>
+              Download
+            </Button>
+          );
+        }
+        return null;
+      },
     },
   ];
 
@@ -189,6 +199,7 @@ interface InvoiceMobileCardProps {
 const InvoiceMobileCard: React.FC<InvoiceMobileCardProps> = ({ invoice, onPay }) => {
   const isOverdue = invoice.status === 'overdue';
   const isPaid = invoice.status === 'paid';
+  const canPay = ['overdue', 'confirmed', 'draft', 'pending'].includes(invoice.status);
 
   return (
     <div
@@ -210,7 +221,7 @@ const InvoiceMobileCard: React.FC<InvoiceMobileCardProps> = ({ invoice, onPay })
       <div className="flex items-end justify-between">
         <p className="text-xl font-bold text-gray-100">{formatCurrency(invoice.amount)}</p>
 
-        {isOverdue && (
+        {canPay && (
           <Button variant="danger" size="sm" className="w-full mt-3" onClick={onPay}>
             <CreditCard className="h-4 w-4 mr-1" />
             Pay Now

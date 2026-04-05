@@ -204,14 +204,14 @@ export function useAdminAudit(filters: AuditFilters) {
     queryFn: async () => {
       const params: Record<string, string | number> = {
         page: filters.page,
-        limit: filters.limit,
+        page_size: filters.limit,
       };
-      if (filters.companyId) params.companyId = filters.companyId;
-      if (filters.entityType) params.entityType = filters.entityType;
+      if (filters.companyId) params.tenant_id = filters.companyId;
+      if (filters.entityType) params.entity_type = filters.entityType;
       if (filters.action) params.action = filters.action;
-      if (filters.actor) params.actor = filters.actor;
-      if (filters.dateFrom) params.dateFrom = filters.dateFrom;
-      if (filters.dateTo) params.dateTo = filters.dateTo;
+      if (filters.actor) params.actor_id = filters.actor;
+      if (filters.dateFrom) params.date_from = filters.dateFrom;
+      if (filters.dateTo) params.date_to = filters.dateTo;
 
       const res = await api.get<ApiResponse<AuditEntry[]>>(
         '/admin/audit',

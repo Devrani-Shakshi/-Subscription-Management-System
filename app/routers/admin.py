@@ -149,6 +149,44 @@ async def delete_company(
     return await svc.delete_company(tenant_id, actor_id=user.user_id)
 
 
+# ── Company Tabs ──────────────────────────────────────────────────
+
+@router.get("/companies/{tenant_id}/subscriptions")
+async def get_company_subscriptions(
+    tenant_id: UUID,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    from app.services.admin_company_tabs import AdminCompanyTabsService
+    svc = AdminCompanyTabsService(db)
+    return await svc.get_subscriptions(tenant_id, page, limit)
+
+
+@router.get("/companies/{tenant_id}/customers")
+async def get_company_customers(
+    tenant_id: UUID,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    from app.services.admin_company_tabs import AdminCompanyTabsService
+    svc = AdminCompanyTabsService(db)
+    return await svc.get_customers(tenant_id, page, limit)
+
+
+@router.get("/companies/{tenant_id}/invoices")
+async def get_company_invoices(
+    tenant_id: UUID,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    from app.services.admin_company_tabs import AdminCompanyTabsService
+    svc = AdminCompanyTabsService(db)
+    return await svc.get_invoices(tenant_id, page, limit)
+
+
 # ── Dashboard ────────────────────────────────────────────────────
 
 @router.get("/dashboard", response_model=PlatformDashboardResponse)

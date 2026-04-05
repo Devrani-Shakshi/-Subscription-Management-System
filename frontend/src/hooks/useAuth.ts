@@ -63,9 +63,10 @@ export function useValidateInvite(token: string) {
   return useQuery({
     queryKey: ['invite-validate', token],
     queryFn: async () => {
-      const response = await api.get<InviteValidateResponse>(
+      const response = await api.get(
         `/auth/invite/validate/${token}`
       );
+      // Backend returns { data: { email, invitedBy, role, companyName } }
       return response.data.data;
     },
     enabled: !!token,
@@ -76,11 +77,11 @@ export function useValidateInvite(token: string) {
 export function useAcceptInvite() {
   return useMutation({
     mutationFn: async (data: InviteAcceptRequest) => {
-      const response = await api.post<AuthResponse>(
+      const response = await api.post(
         '/auth/invite/accept',
         data
       );
-      return response.data.data;
+      return response.data;
     },
   });
 }

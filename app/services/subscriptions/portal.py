@@ -44,6 +44,99 @@ class PortalSubscriptionService:
         self.tenant_id = tenant_id
         self.user_id = user_id
 
+    # ── CREATE SUBSCRIPTION ─────────────────────────────────────
+
+    async def create_subscription(self, plan_id: uuid.UUID) -> dict[str, Any]:
+        """Create a new subscription if the portal user does not have one."""
+        query = select(Subscription).where(
+            Subscription.customer_id == self.user_id,
+            Subscription.tenant_id == self.tenant_id,
+            Subscription.status != SubscriptionStatus.CLOSED,
+            Subscription.deleted_at.is_(None)
+        )
+        existing = (await self.db.execute(query)).scalars().first()
+        if existing:
+            raise ConflictException("You already have an active subscription.")
+
+        plan = await self._load_plan(plan_id)
+        
+        # Determine dates based on billing period
+        import calendar
+        start_date = date.today()
+        expires = start_date
+        from dateutil.relativedelta import relativedelta
+        if plan.billing_period.value == "monthly":
+            expires = start_date + relativedelta(months=1)
+        elif plan.billing_period.value == "quarterly":
+            expires = start_date + relativedelta(months=3)
+        elif plan.billing_period.value == "yearly":
+            expires = start_date + relativedelta(years=1)
+            
+        import string
+        import random
+        sub_number = "SUB-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        sub = Subscription(
+            tenant_id=self.tenant_id,
+            customer_id=self.user_id,
+            plan_id=plan.id,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=start_date,
+            expiry_date=expires,
+            payment_terms=plan.billing_period.value,
+            number=sub_number
+        )
+        self.db.add(sub)
+        await self.db.flush()
+
+        # Get or create a product representing this plan
+        from app.models.product import Product
+        product = (await self.db.execute(
+            select(Product).where(Product.tenant_id == self.tenant_id, Product.name == plan.name)
+        )).scalars().first()
+        
+        if not product:
+            product = Product(
+                tenant_id=self.tenant_id,
+                name=plan.name,
+                type="service",
+                sales_price=plan.price,
+                cost_price=0
+            )
+            self.db.add(product)
+            await self.db.flush()
+
+        # Add a default line 
+        from app.models.subscription_line import SubscriptionLine
+        line = SubscriptionLine(  
+            tenant_id=self.tenant_id,
+            subscription_id=sub.id,
+            product_id=product.id,
+            qty=1,
+            unit_price=plan.price
+        )
+        self.db.add(line)
+        await self.db.flush()
+
+        from sqlalchemy.orm import selectinload
+        sub_loaded = (await self.db.execute(
+            select(Subscription)
+            .options(selectinload(Subscription.lines))
+            .where(Subscription.id == sub.id)
+        )).scalars().first()
+        
+        # Create initial invoice
+        from app.services.subscriptions.invoice_factory import InvoiceFactory
+        invoice = await InvoiceFactory.create_from_subscription(
+            db=self.db,
+            sub=sub_loaded,
+            tenant_id=self.tenant_id
+        )
+        invoice.status = InvoiceStatus.CONFIRMED
+        await self.db.flush()
+        
+        return await self.get_my_subscription()
+
     # ── GET MY SUBSCRIPTION ─────────────────────────────────────
 
     async def get_my_subscription(self) -> dict[str, Any]:
@@ -57,43 +150,56 @@ class PortalSubscriptionService:
         plan = await self._load_plan(sub.plan_id)
         invoices = await self._recent_invoices(sub.id, limit=3)
 
+        # Get product names using product IDs from lines
+        product_dict = {}
+        if sub.lines:
+            from app.models.product import Product
+            product_ids = [ln.product_id for ln in sub.lines]
+            products = (await self.db.execute(select(Product).where(Product.id.in_(product_ids)))).scalars()
+            product_dict = {p.id: p.name for p in products}
+
         lines = [
             {
-                "product_id": str(ln.product_id),
-                "qty": ln.qty,
-                "unit_price": str(ln.unit_price),
-                "line_total": str(ln.unit_price * ln.qty),
+                "id": str(ln.id),
+                "product": product_dict.get(ln.product_id, "Service Plan"),
+                "quantity": ln.qty,
+                "unitPrice": float(ln.unit_price),
+                "total": float(ln.unit_price * ln.qty),
             }
             for ln in sub.lines
         ]
 
+        subtotal = sum(ln["total"] for ln in lines)
+
         invoice_list = [
             {
                 "id": str(inv.id),
+                "number": inv.invoice_number,
+                "date": inv.created_at.isoformat() if inv.created_at else inv.due_date.isoformat(),
+                "dueDate": inv.due_date.isoformat(),
+                "amount": float(inv.total),
                 "status": inv.status.value,
-                "total": str(inv.total),
-                "due_date": inv.due_date.isoformat(),
             }
             for inv in invoices
         ]
 
         return {
-            "subscription": {
-                "id": str(sub.id),
-                "number": sub.number,
-                "status": sub.status.value,
-                "start_date": sub.start_date.isoformat(),
-                "expiry_date": sub.expiry_date.isoformat(),
-                "payment_terms": sub.payment_terms,
-            },
-            "plan": {
-                "id": str(plan.id),
-                "name": plan.name,
-                "price": str(plan.price),
-                "billing_period": plan.billing_period.value,
-            },
-            "lines": lines,
-            "recent_invoices": invoice_list,
+            "id": str(sub.id),
+            "planId": str(plan.id),
+            "planName": plan.name,
+            "billingPeriod": plan.billing_period.value,
+            "status": sub.status.value,
+            "price": float(plan.price),
+            "nextBillingDate": sub.expiry_date.isoformat() if sub.expiry_date else "",
+            "startDate": sub.start_date.isoformat(),
+            "expiryDate": sub.expiry_date.isoformat() if sub.expiry_date else None,
+            "orderLines": lines,
+            "subtotal": subtotal,
+            "tax": 0.0,
+            "discount": 0.0,
+            "grandTotal": subtotal,
+            "recentInvoices": invoice_list,
+            "scheduledDowngrade": None,
         }
 
     # ── CHANGE PLAN PREVIEW ─────────────────────────────────────
@@ -132,16 +238,23 @@ class PortalSubscriptionService:
             )
             return {
                 "direction": "upgrade",
-                "amount_due_today": str(pro_rata.amount_due),
-                "pro_rata_days": remaining_days,
-                "effective_date": date.today().isoformat(),
+                "todaysCharge": float(pro_rata.amount_due),
+                "daysRemaining": remaining_days,
+                "newPlanName": target_plan.name,
+                "effectiveDate": date.today().isoformat(),
+                "warnings": []
             }
 
         return {
             "direction": "downgrade",
-            "amount_due_today": "0.00",
-            "pro_rata_days": remaining_days,
-            "effective_date": sub.expiry_date.isoformat(),
+            "todaysCharge": 0.0,
+            "daysRemaining": remaining_days,
+            "newPlanName": target_plan.name,
+            "effectiveDate": sub.expiry_date.isoformat() if sub.expiry_date else "",
+            "warnings": [
+                "Your current plan features will remain active until the end of the billing cycle.",
+                "The new rate will apply on the next billing date."
+            ]
         }
 
     # ── CHANGE PLAN ─────────────────────────────────────────────

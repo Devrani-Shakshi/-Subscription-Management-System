@@ -81,6 +81,17 @@ router = APIRouter(
 # ── Helpers ──────────────────────────────────────────────────────
 
 
+def _invoice_to_portal_response(inv) -> dict:
+    """Map Invoice model to strictly matching frontend PortalInvoice interface."""
+    return {
+        "id": str(inv.id),
+        "number": inv.invoice_number or "",
+        "date": inv.created_at.isoformat() if inv.created_at else inv.due_date.isoformat(),
+        "dueDate": inv.due_date.isoformat() if inv.due_date else "",
+        "amount": float(inv.total) if inv.total else 0.0,
+        "status": inv.status.value if inv.status else "draft"
+    }
+
 def _invoice_to_response(inv) -> InvoiceResponse:
     """Map Invoice model to portal response schema."""
     return InvoiceResponse(
@@ -143,36 +154,39 @@ async def get_me(
     }
 
 
-@router.get("/profile", response_model=PortalProfileResponse)
+@router.get("/profile")
 async def get_profile(
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
-) -> PortalProfileResponse:
+) -> dict:
     """Return full portal_user profile."""
     svc = PortalService(db, user.user_id, user.tenant_id)
-    return await svc.get_profile()
+    prof = await svc.get_profile()
+    return {"data": prof}
 
 
-@router.patch("/profile", response_model=PortalProfileResponse)
+@router.patch("/profile")
 async def update_profile(
     body: PortalProfileUpdateRequest,
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
-) -> PortalProfileResponse:
+) -> dict:
     """Update portal_user name."""
     svc = PortalService(db, user.user_id, user.tenant_id)
-    return await svc.update_profile(body)
+    prof = await svc.update_profile(body)
+    return {"data": prof}
 
 
-@router.patch("/profile/address", response_model=PortalProfileResponse)
+@router.patch("/profile/address")
 async def update_address(
     body: PortalAddressUpdateRequest,
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
-) -> PortalProfileResponse:
+) -> dict:
     """Update billing address."""
     svc = PortalService(db, user.user_id, user.tenant_id)
-    return await svc.update_address(body)
+    prof = await svc.update_address(body)
+    return {"data": prof}
 
 
 @router.post("/profile/change-password")
@@ -197,8 +211,25 @@ async def get_my_subscription(
     db: AsyncSession = Depends(get_tenant_session),
 ) -> dict:
     """Get portal_user's active subscription with plan + lines + invoices."""
+    from app.exceptions.base import NotFoundException
     svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
-    return await svc.get_my_subscription()
+    try:
+        sub = await svc.get_my_subscription()
+        return {"data": sub}
+    except NotFoundException:
+        return {"data": None}
+
+
+@router.post("/my-subscription/create")
+async def create_subscription(
+    body: ChangePlanRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Create a new subscription if user doesn't have one."""
+    svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
+    res = await svc.create_subscription(body.plan_id)
+    return {"data": res}
 
 
 @router.get("/my-subscription/change-plan/preview")
@@ -209,7 +240,8 @@ async def change_plan_preview(
 ) -> dict:
     """Preview a plan change (upgrade/downgrade)."""
     svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
-    return await svc.change_plan_preview(plan_id)
+    preview = await svc.change_plan_preview(plan_id)
+    return {"data": preview}
 
 
 @router.post("/my-subscription/change-plan")
@@ -220,7 +252,8 @@ async def change_plan(
 ) -> dict:
     """Execute a plan change (upgrade immediately, downgrade scheduled)."""
     svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
-    return await svc.change_plan(body.plan_id)
+    res = await svc.change_plan(body.plan_id)
+    return {"data": res}
 
 
 @router.post("/my-subscription/cancel")
@@ -231,7 +264,8 @@ async def cancel_subscription(
 ) -> dict:
     """Cancel portal_user's subscription."""
     svc = PortalSubscriptionService(db, user.tenant_id, user.user_id)
-    return await svc.cancel(body.reason)
+    res = await svc.cancel(body.reason)
+    return {"data": res}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -243,18 +277,26 @@ async def cancel_subscription(
 async def list_invoices(
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
+    status: str | None = Query(None, description="Filter by status"),
+    dateFrom: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    dateTo: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-) -> InvoiceListResponse:
+) -> dict:
     """List invoices for the authenticated customer."""
     svc = InvoiceService(db, user.tenant_id)
     items, total = await svc.list_invoices_for_customer(
-        user.user_id, offset=offset, limit=limit
+        user.user_id, 
+        status=status,
+        date_from=dateFrom,
+        date_to=dateTo,
+        offset=offset, 
+        limit=limit
     )
-    return InvoiceListResponse(
-        items=[_invoice_to_response(i) for i in items],
-        total=total,
-    )
+    return {
+        "data": [_invoice_to_portal_response(i) for i in items],
+        "meta": {"total": total, "offset": offset, "limit": limit}
+    }
 
 
 @router.get("/invoices/{invoice_id}")
@@ -262,11 +304,11 @@ async def get_invoice(
     invoice_id: UUID,
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Get a single invoice for the authenticated customer."""
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.get_invoice_for_customer(invoice_id, user.user_id)
-    return _invoice_to_response(inv)
+    return {"data": _invoice_to_response(inv)}
 
 
 @router.get("/invoices/{invoice_id}/pdf")
@@ -296,7 +338,7 @@ async def pay_invoice(
     body: PortalPayRequest,
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
-) -> PaymentResponse:
+) -> dict:
     """Pay an invoice (full outstanding amount)."""
     svc = PaymentService(db, user.tenant_id)
     payment = await svc.portal_pay(
@@ -304,7 +346,7 @@ async def pay_invoice(
         customer_id=user.user_id,
         method=body.method,
     )
-    return _payment_to_response(payment)
+    return {"data": _payment_to_response(payment)}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -366,16 +408,20 @@ async def paypal_failure(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/payments", response_model=PortalPaymentListResponse)
+@router.get("/payments")
 async def list_payments(
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-) -> PortalPaymentListResponse:
+) -> dict:
     """Payment history for the authenticated customer."""
     svc = PortalService(db, user.user_id, user.tenant_id)
-    return await svc.list_payments(offset=offset, limit=limit)
+    res = await svc.list_payments(offset=offset, limit=limit)
+    return {
+        "data": res.items,
+        "meta": {"total": res.total, "has_overdue": res.has_overdue, "offset": offset, "limit": limit}
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -383,14 +429,18 @@ async def list_payments(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/sessions", response_model=SessionListResponse)
+@router.get("/sessions")
 async def list_sessions(
     user: TokenPayload = Depends(require_portal_user),
     db: AsyncSession = Depends(get_tenant_session),
-) -> SessionListResponse:
+) -> dict:
     """List all active sessions."""
     svc = PortalService(db, user.user_id, user.tenant_id)
-    return await svc.list_sessions()
+    res = await svc.list_sessions()
+    return {
+        "data": res.items,
+        "meta": {"total": res.total}
+    }
 
 
 @router.delete("/sessions/{session_id}")
@@ -401,4 +451,32 @@ async def revoke_session(
 ) -> dict:
     """Revoke a specific session."""
     svc = PortalService(db, user.user_id, user.tenant_id)
-    return await svc.revoke_session(session_id)
+    res = await svc.revoke_session(session_id)
+    return {"data": res}
+
+
+@router.get("/plans")
+async def get_plans(
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """List active plans for the tenant."""
+    from sqlalchemy import select
+    from app.models.plan import Plan
+    result = await db.execute(
+        select(Plan).where(
+            Plan.tenant_id == user.tenant_id,
+            Plan.deleted_at.is_(None)
+        )
+    )
+    plans = result.scalars().all()
+    return {
+        "data": [{
+            "id": str(p.id),
+            "name": p.name,
+            "description": p.features_json.get("description", "No description") if isinstance(p.features_json, dict) else "No description",
+            "price": str(p.price),
+            "billing_period": p.billing_period.value,
+            "features": p.features_json.get("items", []) if isinstance(p.features_json, dict) else [],
+        } for p in plans]
+    }

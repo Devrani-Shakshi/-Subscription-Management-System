@@ -38,9 +38,15 @@ class InvoiceFactory:
 
         Used when activating a subscription for the first time.
         """
+        from sqlalchemy import select, func
+        result = await db.execute(select(func.count(Invoice.id)).where(Invoice.tenant_id == tenant_id))
+        count = result.scalar() or 0
+        inv_number = f"INV-{count + 1:06d}"
+
         subtotal = Decimal("0.00")
         invoice = Invoice(
             tenant_id=tenant_id,
+            invoice_number=inv_number,
             subscription_id=sub.id,
             customer_id=sub.customer_id,
             status=InvoiceStatus.DRAFT,
@@ -85,8 +91,14 @@ class InvoiceFactory:
 
         The amount_due from ProRataResult becomes the invoice total.
         """
+        from sqlalchemy import select, func
+        result = await db.execute(select(func.count(Invoice.id)).where(Invoice.tenant_id == tenant_id))
+        count = result.scalar() or 0
+        inv_number = f"INV-{count + 1:06d}"
+
         invoice = Invoice(
             tenant_id=tenant_id,
+            invoice_number=inv_number,
             subscription_id=sub.id,
             customer_id=sub.customer_id,
             status=InvoiceStatus.DRAFT,

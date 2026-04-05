@@ -94,16 +94,39 @@ class InvoiceService(BaseService):
         self,
         customer_id: uuid.UUID,
         *,
+        status: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
         offset: int = 0,
         limit: int = 100,
     ) -> tuple[Sequence[Invoice], int]:
         """List invoices scoped to a portal customer."""
-        invoices = await self._repo.find_by_customer(
-            customer_id, offset=offset, limit=limit
+        filters = [Invoice.customer_id == customer_id]
+
+        if status:
+            try:
+                filters.append(Invoice.status == InvoiceStatus(status))
+            except ValueError:
+                pass
+                
+        if date_from:
+            from datetime import date
+            try:
+                filters.append(Invoice.created_at >= date.fromisoformat(date_from[:10]))
+            except ValueError:
+                pass
+                
+        if date_to:
+            from datetime import date
+            try:
+                filters.append(Invoice.created_at <= date.fromisoformat(date_to[:10]))
+            except ValueError:
+                pass
+
+        invoices = await self._repo.find_all(
+            filters=filters, offset=offset, limit=limit
         )
-        total = await self._repo.count(
-            Invoice.customer_id == customer_id,
-        )
+        total = await self._repo.count(*filters)
         return invoices, total
 
     async def get_invoice_for_customer(

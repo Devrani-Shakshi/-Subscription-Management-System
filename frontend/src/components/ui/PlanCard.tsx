@@ -27,6 +27,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
 
   const getButtonConfig = () => {
     if (isCurrent) return null;
+    if (currentPrice === undefined || currentPlanId === undefined) return { label: 'Subscribe', variant: 'primary' as const };
     if (isUpgrade) return { label: 'Upgrade', variant: 'primary' as const };
     if (isDowngrade) return { label: 'Downgrade', variant: 'amber' as const };
     return { label: 'Switch to this plan', variant: 'primary' as const };

@@ -75,8 +75,8 @@ export function usePortalProRataPreview(subscriptionId: string, planId: string) 
     queryKey: ['portal', 'pro-rata', subscriptionId, planId],
     queryFn: async () => {
       const { data } = await api.get<ApiResponse<PortalProRataPreview>>(
-        `/portal/subscriptions/${subscriptionId}/preview`,
-        { params: { planId } }
+        `/portal/my-subscription/change-plan/preview`,
+        { params: { plan_id: planId } }
       );
       return data.data;
     },
@@ -91,12 +91,32 @@ export function usePortalDowngradePreview(subscriptionId: string, planId: string
     queryKey: ['portal', 'downgrade-preview', subscriptionId, planId],
     queryFn: async () => {
       const { data } = await api.get<ApiResponse<PortalDowngradePreview>>(
-        `/portal/subscriptions/${subscriptionId}/downgrade-preview`,
-        { params: { planId } }
+        `/portal/my-subscription/change-plan/preview`,
+        { params: { plan_id: planId } }
       );
       return data.data;
     },
     enabled: !!subscriptionId && !!planId,
+  });
+}
+
+export function usePortalSubscribe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId }: { planId: string }) => {
+      const { data } = await api.post<ApiResponse<PortalSubscription>>(
+        '/portal/my-subscription/create',
+        { plan_id: planId }
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portal', 'my-subscription'] });
+      toast.success('Successfully subscribed to plan!');
+    },
+    onError: (err: AxiosError<ApiError>) => {
+      toast.error(err.response?.data?.message || 'Subscription failed');
+    },
   });
 }
 
@@ -107,8 +127,8 @@ export function usePortalUpgrade() {
   return useMutation({
     mutationFn: async ({ subscriptionId, planId }: { subscriptionId: string; planId: string }) => {
       const { data } = await api.post<ApiResponse<PortalSubscription>>(
-        `/portal/subscriptions/${subscriptionId}/upgrade`,
-        { planId }
+        `/portal/my-subscription/change-plan`,
+        { plan_id: planId }
       );
       return data.data;
     },
@@ -129,8 +149,8 @@ export function usePortalDowngrade() {
   return useMutation({
     mutationFn: async ({ subscriptionId, planId }: { subscriptionId: string; planId: string }) => {
       const { data } = await api.post<ApiResponse<PortalSubscription>>(
-        `/portal/subscriptions/${subscriptionId}/downgrade`,
-        { planId }
+        `/portal/my-subscription/change-plan`,
+        { plan_id: planId }
       );
       return data.data;
     },

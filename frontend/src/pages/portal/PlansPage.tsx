@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, PageLoader, PageError, PlanCard } from '@/components/ui';
-import { useAvailablePlans, useTenantBranding, useMySubscription } from '@/hooks/usePortal';
+import { useAvailablePlans, useTenantBranding, useMySubscription, usePortalSubscribe } from '@/hooks/usePortal';
 import { useAuthStore } from '@/stores/authStore';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { PlanSwitchModal } from './PlanSwitchModal';
@@ -21,14 +21,26 @@ export const PlansPage: React.FC = () => {
   const [switchOpen, setSwitchOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PortalPlan | null>(null);
 
+  const subscribeMutation = usePortalSubscribe();
+
   const handleSelect = (plan: PortalPlan) => {
     if (!user) {
       const slug = tenantSlug || branding.slug;
       navigate(`/register?tenant=${slug}&plan=${plan.id}`);
       return;
     }
-    setSelectedPlan(plan);
-    setSwitchOpen(true);
+    
+    // If they already have a subscription, open the Upgrade/Downgrade modal
+    if (subscription) {
+      setSelectedPlan(plan);
+      setSwitchOpen(true);
+      return;
+    }
+
+    // Otherwise create a new subscription directly
+    subscribeMutation.mutate({ planId: plan.id }, {
+      onSuccess: () => navigate('/portal')
+    });
   };
 
   if (isLoading) return <PageLoader />;

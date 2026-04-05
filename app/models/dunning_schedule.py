@@ -34,7 +34,11 @@ class DunningSchedule(BaseModel):
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
     action: Mapped[DunningAction] = mapped_column(
         SAEnum(
-            DunningAction, name="dunning_action", create_constraint=True
+            DunningAction, 
+            name="dunning_action", 
+            create_constraint=True,
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj]
         ),
         nullable=False,
     )
@@ -46,7 +50,11 @@ class DunningSchedule(BaseModel):
     )
     status: Mapped[DunningStatus] = mapped_column(
         SAEnum(
-            DunningStatus, name="dunning_status", create_constraint=True
+            DunningStatus, 
+            name="dunning_status", 
+            create_constraint=True,
+            native_enum=True,
+            values_callable=lambda obj: [e.value for e in obj]
         ),
         default=DunningStatus.PENDING,
         nullable=False,

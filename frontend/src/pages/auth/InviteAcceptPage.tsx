@@ -64,7 +64,6 @@ export const InviteAcceptPage: React.FC = () => {
   const navigate = useNavigate();
   const { token = '' } = useParams<{ token: string }>();
 
-  const setAuth = useAuthStore((s) => s.setAuth);
   const { data: invite, isLoading, isError } = useValidateInvite(token);
   const acceptMutation = useAcceptInvite();
 
@@ -91,10 +90,10 @@ export const InviteAcceptPage: React.FC = () => {
       acceptMutation.mutate(
         { token, name: data.name, password: data.password },
         {
-          onSuccess: (result) => {
+          onSuccess: () => {
             setPageState('success');
-            setAuth(result.user, result.accessToken, result.user.tenantId);
-            navigate(ROLE_ROUTES[result.user.role] || '/', { replace: true });
+            // Redirect to login — invite accept doesn't return tokens
+            navigate('/login?accepted=1', { replace: true });
           },
           onError: (error) => {
             setPageState('error');
@@ -107,7 +106,7 @@ export const InviteAcceptPage: React.FC = () => {
         }
       );
     },
-    [token, acceptMutation, setAuth, navigate]
+    [token, acceptMutation, navigate]
   );
 
   if (isLoading) return <InviteSkeleton />;
