@@ -451,7 +451,7 @@ async def get_company_dashboard(
         "value": str(inv_count), "raw_value": str(inv_count), "trend": "flat", "delta": "0", "period": ""
     }
 
-    metrics = {k: MetricItem(name=k, **v) for k, v in raw_metrics.items()}
+    metrics = {k.lower(): MetricItem(name=k, **v) for k, v in raw_metrics.items()}
     
     # Recent Activity
     audit_svc = CompanyAuditService(db, user.tenant_id)
@@ -501,7 +501,7 @@ async def get_company_dashboard(
     ]
     
     # Mocks for charts until historical pipelines run
-    v = float(raw_metrics.get("mrr", {}).get("raw_value", 0))
+    v = float(raw_metrics.get("MRR", {}).get("raw_value", 0))
     mrr_chart = [
         {"month": "Jan", "mrr": max(0, v - 100)},
         {"month": "Feb", "mrr": max(0, v - 50)},
@@ -732,12 +732,12 @@ async def update_product(
     }
 
 
-@router.delete("/products/{product_id}", status_code=204)
+@router.delete("/products/{product_id}", status_code=204, response_class=Response)
 async def delete_product(
     product_id: UUID,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> None:
+) -> Response:
     """Delete a product (fails if used in active subscriptions)."""
     from sqlalchemy import select, func
     from app.models.product import Product
@@ -763,6 +763,7 @@ async def delete_product(
 
     await db.delete(product)
     await db.flush()
+    return Response(status_code=204)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -906,12 +907,12 @@ async def update_plan(
     }
 
 
-@router.delete("/plans/{plan_id}", status_code=204)
+@router.delete("/plans/{plan_id}", status_code=204, response_class=Response)
 async def delete_plan(
     plan_id: UUID,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> None:
+) -> Response:
     """Delete a plan."""
     from sqlalchemy import select
     from app.models.plan import Plan
@@ -926,6 +927,7 @@ async def delete_plan(
 
     await db.delete(plan)
     await db.flush()
+    return Response(status_code=204)
 
 # ═══════════════════════════════════════════════════════════════
 # Subscriptions
