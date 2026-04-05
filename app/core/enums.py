@@ -52,7 +52,17 @@ class PaymentMethod(str, enum.Enum):
     CARD = "card"
     BANK = "bank"
     CASH = "cash"
+    PAYPAL = "paypal"
     OTHER = "other"
+
+
+# ── PayPal Order Status ──────────────────────────────────────────
+class PayPalOrderStatus(str, enum.Enum):
+    CREATED = "created"
+    APPROVED = "approved"
+    CAPTURED = "captured"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 # ── Discount ─────────────────────────────────────────────────────

@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = False
     SMTP_START_TLS: bool = True
 
+    # ── PayPal Payment Gateway ───────────────────────────────────
+    # ⚠️  PUT YOUR PAYPAL API KEYS HERE (via .env file)
+    PAYPAL_CLIENT_ID: str ="AUz9qZLYHxxq2ZLR-nrtc7OrAorIY1jtiR4klzc5zZNJYjvmUurdtt1n-ghxsuPFH0ABJLNQngPwOh4M"           # PayPal App Client ID
+    PAYPAL_CLIENT_SECRET: str = "EHDzXKKY7aRo7d9Taem9q7o5riGY2UtNT7v3ys6DTZNksllNPcFLoMeHjyf5bO27umHLKUCm77SRlJKv"       # PayPal App Secret Key
+    PAYPAL_MODE: str = "sandbox"         # "sandbox" for testing, "live" for production
+    PAYPAL_SUCCESS_URL: str = "http://localhost:8081/payment/success"
+    PAYPAL_CANCEL_URL: str = "http://localhost:8081/payment/cancel"
+
     # ── Sentry (error tracking) ──────────────────────────────────
     SENTRY_DSN: str = ""
 

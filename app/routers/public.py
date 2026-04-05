@@ -91,3 +91,49 @@ async def list_public_plans(
         ).model_dump()
         for p in plans
     ]
+
+
+# ═══════════════════════════════════════════════════════════════
+# PayPal Health Check
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/paypal/health")
+async def paypal_health_check() -> dict:
+    """
+    Check if PayPal payment gateway is properly configured and reachable.
+    No auth required — use this to verify your API keys work.
+    """
+    from app.core.config import settings
+    from app.services.billing.paypal_gateway import PayPalGateway
+
+    # Step 1: Check if keys are configured
+    if not settings.PAYPAL_CLIENT_ID or not settings.PAYPAL_CLIENT_SECRET:
+        return {
+            "status": "not_configured",
+            "message": "PayPal API keys are missing. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in .env",
+            "mode": settings.PAYPAL_MODE,
+            "client_id_set": bool(settings.PAYPAL_CLIENT_ID),
+            "client_secret_set": bool(settings.PAYPAL_CLIENT_SECRET),
+        }
+
+    # Step 2: Try to get an OAuth2 token (proves keys are valid)
+    gateway = PayPalGateway()
+    try:
+        token = await gateway._get_access_token()
+        return {
+            "status": "healthy",
+            "message": "PayPal gateway is connected and API keys are valid!",
+            "mode": settings.PAYPAL_MODE,
+            "token_preview": token[:20] + "..." if token else None,
+            "success_url": settings.PAYPAL_SUCCESS_URL,
+            "cancel_url": settings.PAYPAL_CANCEL_URL,
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"PayPal connection failed: {str(e)}",
+            "mode": settings.PAYPAL_MODE,
+            "client_id_preview": settings.PAYPAL_CLIENT_ID[:10] + "..." if settings.PAYPAL_CLIENT_ID else None,
+        }
+

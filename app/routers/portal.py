@@ -58,9 +58,18 @@ from app.schemas.subscription import (
 )
 from app.services.billing.invoice_service import InvoiceService
 from app.services.billing.payment_service import PaymentService
+from app.services.billing.paypal_service import PayPalPaymentService
 from app.services.billing.pdf_generator import InvoicePDFGenerator
 from app.services.portal import PortalService
 from app.services.subscriptions.portal import PortalSubscriptionService
+from app.schemas.paypal import (
+    PayPalCheckoutRequest,
+    PayPalCheckoutResponse,
+    PayPalFailureRequest,
+    PayPalFailureResponse,
+    PayPalSuccessRequest,
+    PayPalSuccessResponse,
+)
 
 router = APIRouter(
     prefix="/portal",
@@ -296,6 +305,60 @@ async def pay_invoice(
         method=body.method,
     )
     return _payment_to_response(payment)
+
+
+# ═══════════════════════════════════════════════════════════════
+# PayPal Payment Gateway
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.post("/invoices/{invoice_id}/paypal/checkout")
+async def paypal_checkout(
+    invoice_id: UUID,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> PayPalCheckoutResponse:
+    """Initiate PayPal checkout for an invoice — returns approval URL."""
+    svc = PayPalPaymentService(db, user.tenant_id)
+    result = await svc.create_checkout(
+        invoice_id=invoice_id,
+        customer_id=user.user_id,
+    )
+    return PayPalCheckoutResponse(**result)
+
+
+@router.post("/invoices/{invoice_id}/paypal/success")
+async def paypal_success(
+    invoice_id: UUID,
+    body: PayPalSuccessRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> PayPalSuccessResponse:
+    """Handle PayPal payment success — captures payment and records it."""
+    svc = PayPalPaymentService(db, user.tenant_id)
+    result = await svc.handle_success(
+        paypal_order_id=body.paypal_order_id,
+        invoice_id=invoice_id,
+        customer_id=user.user_id,
+    )
+    return PayPalSuccessResponse(**result)
+
+
+@router.post("/invoices/{invoice_id}/paypal/failure")
+async def paypal_failure(
+    invoice_id: UUID,
+    body: PayPalFailureRequest,
+    user: TokenPayload = Depends(require_portal_user),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> PayPalFailureResponse:
+    """Handle PayPal payment failure or cancellation."""
+    svc = PayPalPaymentService(db, user.tenant_id)
+    result = await svc.handle_failure(
+        paypal_order_id=body.paypal_order_id,
+        invoice_id=invoice_id,
+        reason=body.reason or "Payment cancelled by user",
+    )
+    return PayPalFailureResponse(**result)
 
 
 # ═══════════════════════════════════════════════════════════════
