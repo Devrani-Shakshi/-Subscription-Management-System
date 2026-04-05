@@ -16,6 +16,7 @@ from app.models.base import BaseModel
 
 if TYPE_CHECKING:
     from app.models.invoice import Invoice
+    from app.models.product import Product
 
 
 class InvoiceLine(BaseModel):
@@ -56,6 +57,9 @@ class InvoiceLine(BaseModel):
     # ── relationships ────────────────────────────────────────────
     invoice: Mapped["Invoice"] = relationship(
         "Invoice", back_populates="lines", lazy="selectin"
+    )
+    product: Mapped["Product"] = relationship(
+        "Product", foreign_keys=[product_id], lazy="selectin"
     )
 
     def __repr__(self) -> str:
