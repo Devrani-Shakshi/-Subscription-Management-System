@@ -4,6 +4,7 @@ import { Menu, Bell, LogOut, User, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { ConfirmModal } from '@/components/ui';
 import type { Role } from '@/types';
 
 interface TopbarProps {
@@ -45,6 +46,7 @@ export const Topbar: React.FC<TopbarProps> = ({ breadcrumbs }) => {
   const logout = useAuthStore((s) => s.logout);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const avatarStyle = AVATAR_STYLES[user?.role ?? 'super_admin'];
@@ -163,8 +165,7 @@ export const Topbar: React.FC<TopbarProps> = ({ breadcrumbs }) => {
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
-                      logout();
-                      navigate('/login');
+                      setShowLogoutConfirm(true);
                     }}
                     className="flex items-center gap-3 w-full px-4 py-2.5 text-sm
                                text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
@@ -178,6 +179,21 @@ export const Topbar: React.FC<TopbarProps> = ({ breadcrumbs }) => {
           </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          logout();
+          navigate('/login');
+        }}
+        title="Confirm Logout"
+        message="Are you sure you want to log out? You will need to sign in again to access your account."
+        confirmLabel="Logout"
+        variant="danger"
+      />
     </header>
   );
 };

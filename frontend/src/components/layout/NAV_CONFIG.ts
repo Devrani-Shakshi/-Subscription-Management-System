@@ -5,7 +5,7 @@ export const NAV_CONFIG: Record<Role, NavItem[]> = {
     { label: 'Dashboard', path: '/admin', icon: 'LayoutDashboard' },
     { label: 'Companies', path: '/admin/companies', icon: 'Building2' },
     { label: 'Audit Log', path: '/admin/audit', icon: 'ScrollText' },
-    { label: 'Settings', path: '/admin/settings', icon: 'Settings' },
+    { label: 'My Profile', path: '/admin/settings', icon: 'UserCircle' },
   ],
   company: [
     { label: 'Dashboard', path: '/company', icon: 'LayoutDashboard' },

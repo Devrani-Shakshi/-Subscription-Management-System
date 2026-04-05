@@ -118,7 +118,7 @@ const App: React.FC = () => {
               <Route path="/admin/companies" element={<CompaniesPage />} />
               <Route path="/admin/companies/:tenantId" element={<CompanyDetailPage />} />
               <Route path="/admin/audit" element={<AuditLogPage />} />
-              <Route path="/admin/settings" element={<AdminDashboard />} />
+              <Route path="/admin/settings" element={<ProfilePage />} />
             </Route>
           </Route>
 
@@ -144,6 +144,7 @@ const App: React.FC = () => {
               <Route path="/company/dunning" element={<DunningPage />} />
               <Route path="/company/revenue" element={<RevenuePage />} />
               <Route path="/company/audit" element={<AuditPage />} />
+              <Route path="/company/settings" element={<ProfilePage />} />
             </Route>
           </Route>
 
