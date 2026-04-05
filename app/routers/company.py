@@ -675,7 +675,12 @@ async def list_products(
                 "salesPrice": float(p.sales_price),
                 "costPrice": float(p.cost_price),
                 "variants": [
-                    {"id": str(v.id), "sku": v.sku} for v in p.variants
+                    {
+                        "id": str(v.id), 
+                        "attribute": v.attribute, 
+                        "value": v.value, 
+                        "extra_price": float(v.extra_price)
+                    } for v in p.variants
                 ] if p.variants else [],
                 "createdAt": p.created_at.isoformat() if p.created_at else "",
             }
@@ -1016,10 +1021,9 @@ async def list_subscriptions(
             "planName": s.plan.name if s.plan else "Unknown",
             "customerName": s.customer.name if s.customer else "Unknown",
             "startDate": s.start_date.isoformat() if s.start_date else None,
-            "nextBillingDate": s.next_billing_date.isoformat() if s.next_billing_date else None,
             "expiryDate": s.expiry_date.isoformat() if s.expiry_date else None,
             "billingPeriod": s.plan.billing_period.value if s.plan else "monthly",
-            "amount": float(s.amount),
+            "mrr": float(s.plan.price) if s.plan else 0.0,
             "createdAt": s.created_at.isoformat() if s.created_at else "",
         } for s in items],
         "meta": {
