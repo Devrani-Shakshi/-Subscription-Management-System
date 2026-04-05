@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from typing import Any, Optional, Sequence
 
-from sqlalchemy import and_, func as sa_func, select
+from sqlalchemy import Select, and_, func as sa_func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import DunningStatus, InvoiceStatus
@@ -30,6 +30,15 @@ from app.repositories.base import BaseRepository
 
 class InvoiceRepository(BaseRepository[Invoice]):
     model = Invoice
+
+    def _base_query(self) -> Select[tuple[Invoice]]:
+        """Scoped query with joined relationships to avoid lazy loading issues."""
+        from sqlalchemy.orm import joinedload
+        return super()._base_query().options(
+            joinedload(Invoice.customer),
+            joinedload(Invoice.subscription),
+            joinedload(Invoice.lines).joinedload(InvoiceLine.product),
+        )
 
     async def find_by_customer(
         self,
@@ -83,6 +92,14 @@ class InvoiceRepository(BaseRepository[Invoice]):
 class PaymentRepository(BaseRepository[Payment]):
     model = Payment
 
+    def _base_query(self) -> Select[tuple[Payment]]:
+        """Scoped query with joined relationships for rendering."""
+        from sqlalchemy.orm import joinedload
+        return super()._base_query().options(
+            joinedload(Payment.invoice),
+            joinedload(Payment.customer),
+        )
+
     async def find_by_invoice(
         self,
         invoice_id: uuid.UUID,
@@ -111,6 +128,15 @@ class PaymentRepository(BaseRepository[Payment]):
 
 class SubscriptionRepository(BaseRepository[Subscription]):
     model = Subscription
+
+    def _base_query(self) -> Select[tuple[Subscription]]:
+        """Scoped query with joined relationships for rendering."""
+        from sqlalchemy.orm import joinedload
+        return super()._base_query().options(
+            joinedload(Subscription.customer),
+            joinedload(Subscription.plan),
+            joinedload(Subscription.lines).joinedload(SubscriptionLine.product),
+        )
 
 
 # ═══════════════════════════════════════════════════════════════

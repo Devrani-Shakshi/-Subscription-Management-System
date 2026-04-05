@@ -60,18 +60,34 @@ class PortalService(BaseService):
     # ── PROFILE ─────────────────────────────────────────────────
 
     async def get_profile(self) -> PortalProfileResponse:
-        """Return full profile for the authenticated portal_user."""
+        """Return full profile formatted for frontend."""
         user = await self._require_user()
-        tenant_name = await self._get_tenant_name()
+        
+        # Parse simple billing address string back to fields if present
+        street = city = state = country = zip_code = ""
+        address_str = getattr(user, "billing_address", "") or ""
+        if address_str and "," in address_str:
+            try:
+                parts = [p.strip() for p in address_str.split(",")]
+                if len(parts) >= 4:
+                    street = parts[0]
+                    city = parts[1]
+                    # Last part might be country, second to last is state + zip
+                    country = parts[-1]
+                    state_zip = parts[-2].split(" ")
+                    state = state_zip[0]
+                    zip_code = " ".join(state_zip[1:]) if len(state_zip) > 1 else ""
+            except:
+                pass # Fallback to empty if parsing fails
 
         return PortalProfileResponse(
-            user_id=user.id,
             name=user.name,
             email=user.email,
-            role=user.role.value,
-            tenant_id=user.tenant_id,
-            tenant_name=tenant_name,
-            billing_address=getattr(user, "billing_address", None),
+            street=street,
+            city=city,
+            state=state,
+            country=country,
+            zip=zip_code,
             created_at=user.created_at,
         )
 
@@ -141,10 +157,10 @@ class PortalService(BaseService):
         items = [
             SessionResponse(
                 id=s.id,
-                device=s.device_fingerprint,
-                ip_subnet=s.ip_subnet,
-                last_active=s.created_at,
-                is_current=(
+                device=s.device_fingerprint[:25] + "..." if len(s.device_fingerprint) > 25 else s.device_fingerprint,
+                ip=s.ip_subnet or "0.0.0.0",
+                lastActive=s.created_at or datetime.utcnow(),
+                isCurrent=(
                     current_session_family_id is not None
                     and s.family_id == current_session_family_id
                 ),

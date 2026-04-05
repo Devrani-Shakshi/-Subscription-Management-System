@@ -40,15 +40,15 @@ def _sanitize(v: str) -> str:
 
 
 class PortalProfileResponse(BaseModel):
-    """Read-only portal user profile."""
+    """Read-only portal user profile matching frontend expectations."""
 
-    user_id: UUID
     name: str
     email: str
-    role: str
-    tenant_id: Optional[UUID] = None
-    tenant_name: Optional[str] = None
-    billing_address: Optional[str] = None
+    street: str = ""
+    city: str = ""
+    state: str = ""
+    country: str = ""
+    zip: str = ""
     created_at: Optional[datetime] = None
 
 
@@ -131,13 +131,13 @@ class PasswordChangeRequest(BaseModel):
 
 
 class SessionResponse(BaseModel):
-    """Active session info for the profile page."""
+    """Active session info matching frontend expectations."""
 
     id: UUID
     device: str
-    ip_subnet: str
-    last_active: datetime
-    is_current: bool = False
+    ip: str
+    lastActive: datetime
+    isCurrent: bool = False
 
 
 class SessionListResponse(BaseModel):

@@ -19,6 +19,8 @@ from app.models.base import BaseModel
 if TYPE_CHECKING:
     from app.models.invoice_line import InvoiceLine
     from app.models.payment import Payment
+    from app.models.user import User
+    from app.models.subscription import Subscription
 
 
 class Invoice(BaseModel):
@@ -83,6 +85,12 @@ class Invoice(BaseModel):
     )
     payments: Mapped[list["Payment"]] = relationship(
         "Payment", back_populates="invoice", lazy="selectin"
+    )
+    customer: Mapped["User"] = relationship(
+        "User", foreign_keys=[customer_id], lazy="selectin"
+    )
+    subscription: Mapped["Subscription"] = relationship(
+        "Subscription", foreign_keys=[subscription_id], lazy="selectin"
     )
 
     @property

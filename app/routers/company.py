@@ -27,6 +27,7 @@ Endpoints:
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -85,33 +86,43 @@ router = APIRouter(
 
 
 def _invoice_to_response(inv) -> InvoiceResponse:
-    """Map Invoice model to response schema."""
+    """Map Invoice model to response schema with display names."""
+    from app.schemas.billing import InvoiceResponse, InvoiceLineResponse
+
     return InvoiceResponse(
         id=inv.id,
-        invoice_number=inv.invoice_number,
+        number=inv.invoice_number,
         subscription_id=inv.subscription_id,
         customer_id=inv.customer_id,
+        subscriptionName=inv.subscription.name if inv.subscription else "Unknown",
+        customerName=inv.customer.name if inv.customer else "Unknown",
+        customerEmail=inv.customer.email if inv.customer else "",
+        customerAddress="",
         status=inv.status,
-        due_date=inv.due_date,
+        invoiceDate=inv.created_at,
+        dueDate=inv.due_date,
         subtotal=inv.subtotal,
-        tax_total=inv.tax_total,
-        discount_total=inv.discount_total,
+        taxTotal=inv.tax_total,
+        discountTotal=inv.discount_total,
         total=inv.total,
-        amount_paid=inv.amount_paid,
-        amount_due=inv.amount_due,
-        discount_id=inv.discount_id,
-        lines=[
-            {
-                "id": l.id,
-                "product_id": l.product_id,
-                "qty": l.qty,
-                "unit_price": l.unit_price,
-                "tax_id": l.tax_id,
-                "discount_id": l.discount_id,
-            }
+        amountPaid=inv.amount_paid,
+        amountDue=inv.amount_due,
+        createdAt=inv.created_at,
+        updatedAt=inv.updated_at or inv.created_at,
+        lineItems=[
+            InvoiceLineResponse(
+                id=l.id,
+                product_id=l.product_id,
+                product=l.product.name if l.product else "Unknown Product",
+                description=l.product.description if l.product and hasattr(l.product, "description") else "",
+                quantity=l.qty,
+                unitPrice=l.unit_price,
+                taxPercent=0.0,  # Placeholder for tax logic
+                discount=Decimal("0"), # Placeholder for discount logic
+                amount=l.qty * l.unit_price
+            )
             for l in (inv.lines or [])
         ],
-        created_at=inv.created_at,
     )
 
 
@@ -119,12 +130,12 @@ def _payment_to_response(p) -> PaymentResponse:
     """Map Payment model to response schema."""
     return PaymentResponse(
         id=p.id,
-        invoice_id=p.invoice_id,
-        customer_id=p.customer_id,
+        invoiceId=p.invoice_id,
+        customerId=p.customer_id,
         method=p.method,
         amount=p.amount,
-        paid_at=p.paid_at,
-        created_at=p.created_at,
+        paidAt=p.paid_at,
+        createdAt=p.created_at,
     )
 
 
@@ -151,15 +162,21 @@ async def invite_customer(
 async def list_invoices(
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
+    offset: Optional[int] = Query(None, ge=0),
 ) -> InvoiceListResponse:
     """List all invoices for the company."""
+    real_offset = offset if offset is not None else (page - 1) * limit
     svc = InvoiceService(db, user.tenant_id)
-    items, total = await svc.list_invoices(offset=offset, limit=limit)
+    items, total = await svc.list_invoices(offset=real_offset, limit=limit)
     return InvoiceListResponse(
-        items=[_invoice_to_response(i) for i in items],
-        total=total,
+        data=[_invoice_to_response(i) for i in items],
+        meta={
+            "total": total,
+            "page": page,
+            "limit": limit
+        },
     )
 
 
@@ -168,11 +185,11 @@ async def create_invoice(
     body: InvoiceGenerateRequest,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Generate a draft invoice from a subscription."""
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.generate_from_subscription(body.subscription_id)
-    return _invoice_to_response(inv)
+    return {"data": _invoice_to_response(inv)}
 
 
 @router.get("/invoices/{invoice_id}")
@@ -180,11 +197,11 @@ async def get_invoice(
     invoice_id: UUID,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Get a single invoice by ID."""
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.get_invoice(invoice_id)
-    return _invoice_to_response(inv)
+    return {"data": _invoice_to_response(inv)}
 
 
 @router.patch("/invoices/{invoice_id}")
@@ -193,12 +210,12 @@ async def update_invoice(
     body: InvoiceUpdateRequest,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Update invoice fields (due_date, etc.)."""
     svc = InvoiceService(db, user.tenant_id)
     data = body.model_dump(exclude_none=True)
     inv = await svc.update_invoice(invoice_id, data)
-    return _invoice_to_response(inv)
+    return {"data": _invoice_to_response(inv)}
 
 
 @router.post("/invoices/{invoice_id}/confirm")
@@ -206,11 +223,11 @@ async def confirm_invoice(
     invoice_id: UUID,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Confirm a draft invoice."""
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.confirm(invoice_id)
-    return _invoice_to_response(inv)
+    return {"data": _invoice_to_response(inv)}
 
 
 @router.post("/invoices/{invoice_id}/cancel")
@@ -218,11 +235,11 @@ async def cancel_invoice(
     invoice_id: UUID,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Cancel an invoice."""
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.cancel(invoice_id)
-    return _invoice_to_response(inv)
+    return {"data": _invoice_to_response(inv)}
 
 
 @router.post("/invoices/{invoice_id}/send")
@@ -230,11 +247,18 @@ async def send_invoice(
     invoice_id: UUID,
     user: TokenPayload = Depends(require_company),
     db: AsyncSession = Depends(get_tenant_session),
-) -> InvoiceResponse:
+) -> dict:
     """Send a confirmed invoice to the customer."""
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.send(invoice_id)
-    return _invoice_to_response(inv)
+    # Backend send() doesn't currently store who it was sent to,
+    # but the frontend expects res.data.email
+    return {
+        "data": {
+            **_invoice_to_response(inv).model_dump(),
+            "email": inv.customer.email if inv.customer else "customer@example.com"
+        }
+    }
 
 
 @router.get("/invoices/{invoice_id}/pdf")
@@ -650,6 +674,9 @@ async def list_products(
                 "type": p.type,
                 "salesPrice": float(p.sales_price),
                 "costPrice": float(p.cost_price),
+                "variants": [
+                    {"id": str(v.id), "sku": v.sku} for v in p.variants
+                ] if p.variants else [],
                 "createdAt": p.created_at.isoformat() if p.created_at else "",
             }
             for p in items
@@ -791,15 +818,29 @@ async def list_plans(
             (Plan.end_date.is_(None)) | (Plan.end_date >= dt_date.today())
         )
 
-    total_q = await db.execute(
-        select(func.count()).select_from(base.subquery())
+    # Subquery for subscription count
+    from app.models.subscription import Subscription
+    sub_count_q = (
+        select(func.count(Subscription.id))
+        .where(Subscription.plan_id == Plan.id)
+        .scalar_subquery()
     )
-    total = total_q.scalar() or 0
+
+    # Total count for pagination
+    from sqlalchemy import func
+    total_res = await db.execute(
+        select(func.count(Plan.id)).where(Plan.tenant_id == user.tenant_id)
+    )
+    total = total_res.scalar() or 0
 
     result = await db.execute(
-        base.order_by(Plan.created_at.desc()).offset(offset).limit(limit)
+        select(Plan, sub_count_q.label("subs_count"))
+        .where(Plan.tenant_id == user.tenant_id)
+        .order_by(Plan.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
-    items = result.scalars().all()
+    rows = result.all()
 
     return {
         "data": [
@@ -811,11 +852,12 @@ async def list_plans(
                 "minQty": p.min_qty,
                 "startDate": p.start_date.isoformat() if p.start_date else None,
                 "endDate": p.end_date.isoformat() if p.end_date else None,
+                "subscriptionsCount": subs_count or 0,
                 "features": p.features_json or {},
                 "flags": p.flags_json or {},
                 "createdAt": p.created_at.isoformat() if p.created_at else "",
             }
-            for p in items
+            for p, subs_count in rows
         ],
         "meta": {"total": total, "page": (offset // limit) + 1, "limit": limit},
     }
@@ -972,8 +1014,11 @@ async def list_subscriptions(
             "planName": s.plan.name if s.plan else "Unknown",
             "customerName": s.customer.name if s.customer else "Unknown",
             "startDate": s.start_date.isoformat() if s.start_date else None,
+            "nextBillingDate": s.next_billing_date.isoformat() if s.next_billing_date else None,
             "expiryDate": s.expiry_date.isoformat() if s.expiry_date else None,
-            "created_at": s.created_at.isoformat() if s.created_at else "",
+            "billingPeriod": s.plan.billing_period.value if s.plan else "monthly",
+            "amount": float(s.amount),
+            "createdAt": s.created_at.isoformat() if s.created_at else "",
         } for s in items],
         "meta": {
             "total": total,

@@ -39,33 +39,43 @@ def _strip_html(v: str) -> str:
 class InvoiceLineResponse(BaseModel):
     id: UUID
     product_id: UUID
-    qty: int
-    unit_price: Decimal
-    tax_id: Optional[UUID] = None
-    discount_id: Optional[UUID] = None
+    product: str = ""
+    description: str = ""
+    quantity: int
+    unitPrice: Decimal
+    taxPercent: float = 0
+    discount: Decimal = Decimal("0")
+    amount: Decimal
 
 
 class InvoiceResponse(BaseModel):
     id: UUID
-    invoice_number: str
+    number: str
     subscription_id: UUID
     customer_id: UUID
+    subscriptionName: str = ""
+    customerName: str = ""
+    customerEmail: str = ""
+    customerAddress: str = ""
     status: InvoiceStatus
-    due_date: date
+    invoiceDate: datetime
+    dueDate: date
     subtotal: Decimal
-    tax_total: Decimal
-    discount_total: Decimal
+    taxTotal: Decimal
+    discountTotal: Decimal
     total: Decimal
-    amount_paid: Decimal
-    amount_due: Decimal
-    discount_id: Optional[UUID] = None
-    lines: list[InvoiceLineResponse] = []
-    created_at: datetime
+    amountPaid: Decimal
+    amountDue: Decimal
+    paymentTerms: str = ""
+    notes: str = ""
+    lineItems: list[InvoiceLineResponse] = []
+    createdAt: datetime
+    updatedAt: datetime
 
 
 class InvoiceListResponse(BaseModel):
-    items: list[InvoiceResponse]
-    total: int
+    data: list[InvoiceResponse]
+    meta: dict[str, int]
 
 
 class InvoiceGenerateRequest(BaseModel):
@@ -112,12 +122,12 @@ class PaymentCreateRequest(BaseModel):
 
 class PaymentResponse(BaseModel):
     id: UUID
-    invoice_id: UUID
-    customer_id: UUID
+    invoiceId: UUID
+    customerId: UUID
     method: PaymentMethod
     amount: Decimal
-    paid_at: datetime
-    created_at: datetime
+    paidAt: datetime
+    createdAt: datetime
 
 
 class PaymentListResponse(BaseModel):

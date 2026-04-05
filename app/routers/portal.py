@@ -23,7 +23,7 @@ Every endpoint ≤ 10 lines. All logic in services.
 """
 
 from __future__ import annotations
-
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -94,32 +94,42 @@ def _invoice_to_portal_response(inv) -> dict:
 
 def _invoice_to_response(inv) -> InvoiceResponse:
     """Map Invoice model to portal response schema."""
+    from app.schemas.billing import InvoiceResponse, InvoiceLineResponse
+
     return InvoiceResponse(
         id=inv.id,
-        invoice_number=inv.invoice_number,
+        number=inv.invoice_number,
         subscription_id=inv.subscription_id,
         customer_id=inv.customer_id,
+        subscriptionName=inv.subscription.name if inv.subscription else "Unknown",
+        customerName=inv.customer.name if inv.customer else "Unknown",
+        customerEmail=inv.customer.email if inv.customer else "",
+        customerAddress="",
         status=inv.status,
-        due_date=inv.due_date,
+        invoiceDate=inv.created_at,
+        dueDate=inv.due_date,
         subtotal=inv.subtotal,
-        tax_total=inv.tax_total,
-        discount_total=inv.discount_total,
+        taxTotal=inv.tax_total,
+        discountTotal=inv.discount_total,
         total=inv.total,
-        amount_paid=inv.amount_paid,
-        amount_due=inv.amount_due,
-        discount_id=inv.discount_id,
-        lines=[
-            {
-                "id": l.id,
-                "product_id": l.product_id,
-                "qty": l.qty,
-                "unit_price": l.unit_price,
-                "tax_id": l.tax_id,
-                "discount_id": l.discount_id,
-            }
+        amountPaid=inv.amount_paid,
+        amountDue=inv.amount_due,
+        createdAt=inv.created_at,
+        updatedAt=inv.updated_at or inv.created_at,
+        lineItems=[
+            InvoiceLineResponse(
+                id=l.id,
+                product_id=l.product_id,
+                product=l.product.name if l.product else "Unknown Product",
+                description=l.product.description if l.product and hasattr(l.product, "description") else "",
+                quantity=l.qty,
+                unitPrice=l.unit_price,
+                taxPercent=0.0,
+                discount=Decimal("0"),
+                amount=l.qty * l.unit_price
+            )
             for l in (inv.lines or [])
         ],
-        created_at=inv.created_at,
     )
 
 
@@ -127,13 +137,27 @@ def _payment_to_response(p) -> PaymentResponse:
     """Map Payment model to response schema."""
     return PaymentResponse(
         id=p.id,
-        invoice_id=p.invoice_id,
-        customer_id=p.customer_id,
+        invoiceId=p.invoice_id,
+        customerId=p.customer_id,
         method=p.method,
         amount=p.amount,
-        paid_at=p.paid_at,
-        created_at=p.created_at,
+        paidAt=p.paid_at,
+        createdAt=p.created_at,
     )
+
+
+def serialize_sub(sub) -> dict:
+    return {
+        "id": str(sub.id),
+        "name": sub.name,
+        "status": sub.status,
+        "planId": sub.plan_id,
+        "customerId": sub.customer_id,
+        "planName": sub.plan.name if sub.plan else "Unknown Plan",
+        "startDate": sub.start_date,
+        "nextBillingDate": sub.next_billing_date,
+        "currentPeriodEnd": sub.current_period_end,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -318,9 +342,34 @@ async def get_invoice_pdf(
     db: AsyncSession = Depends(get_tenant_session),
 ) -> Response:
     """Download invoice PDF (portal mode — no internal data)."""
-    svc = InvoiceService(db, user.tenant_id)
-    inv = await svc.get_invoice_for_customer(invoice_id, user.user_id)
-    pdf = InvoicePDFGenerator().generate(inv, mode="portal")
+    # Manually fetch with joinedload to avoid lazy loading issues in PDF generator
+    from app.models.invoice import Invoice
+    from app.models.invoice_line import InvoiceLine
+    from app.models.tenant import Tenant
+    from sqlalchemy.orm import joinedload
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(Invoice)
+        .options(
+            joinedload(Invoice.lines)
+            .joinedload(InvoiceLine.product)
+        )
+        .where(Invoice.id == invoice_id, Invoice.customer_id == user.user_id)
+    )
+    inv = result.unique().scalar_one_or_none()
+    
+    if not inv:
+        from app.exceptions.base import NotFoundException
+        raise NotFoundException("Invoice not found.")
+
+    # Fetch tenant for name/branding
+    tenant_res = await db.execute(
+        select(Tenant.name).where(Tenant.id == user.tenant_id)
+    )
+    tenant_name = tenant_res.scalar() or "Company"
+
+    pdf = InvoicePDFGenerator().generate(inv, mode="portal", tenant_name=tenant_name)
     return Response(
         content=pdf,
         media_type="application/pdf",
