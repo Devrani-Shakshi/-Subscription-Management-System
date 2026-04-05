@@ -8,10 +8,12 @@ import uuid
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
-
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.models.plan import Plan
 
 class QuotationTemplate(BaseModel):
     __tablename__ = "quotation_templates"
@@ -31,6 +33,8 @@ class QuotationTemplate(BaseModel):
         ForeignKey("plans.id"),
         nullable=False,
     )
+
+    plan: Mapped["Plan"] = relationship("Plan", lazy="joined")
 
     def __repr__(self) -> str:
         return f"<QuotationTemplate {self.name!r}>"

@@ -151,15 +151,14 @@ class SessionListResponse(BaseModel):
 
 
 class PortalPaymentResponse(BaseModel):
-    """Portal-facing payment history entry."""
+    """Portal-facing payment history entry matching frontend expectation."""
 
     id: UUID
+    date: datetime
+    invoiceNumber: str = ""
     amount: Decimal
-    method: PaymentMethod
-    invoice_id: UUID
-    invoice_number: Optional[str] = None
-    paid_at: datetime
-    created_at: datetime
+    method: str
+    status: str = "success"
 
 
 class PortalPaymentListResponse(BaseModel):

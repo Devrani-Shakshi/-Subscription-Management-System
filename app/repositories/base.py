@@ -60,12 +60,12 @@ class BaseRepository(Generic[T]):
             query = query.where(*filters)
         query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return result.unique().scalars().all()
 
     async def find_by_id(self, entity_id: uuid.UUID) -> T:
         query = self._base_query().where(self.model.id == entity_id)
         result = await self.db.execute(query)
-        entity = result.scalar_one_or_none()
+        entity = result.unique().scalar_one_or_none()
         if entity is None:
             raise NotFoundException(
                 f"{self.model.__tablename__} with id {entity_id} not found."
@@ -75,7 +75,7 @@ class BaseRepository(Generic[T]):
     async def find_one(self, *filters: Any) -> Optional[T]:
         query = self._base_query().where(*filters)
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     async def count(self, *filters: Any) -> int:
         from sqlalchemy import func as sa_func

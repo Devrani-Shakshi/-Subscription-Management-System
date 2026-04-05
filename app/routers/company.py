@@ -47,6 +47,17 @@ from app.schemas.billing import (
     PaymentCreateRequest,
     PaymentListResponse,
     PaymentResponse,
+    PaymentSummary,
+    UnpaidInvoiceOption,
+    DiscountResponse,
+    DiscountListResponse,
+    DiscountCreateRequest,
+    TaxResponse,
+    TaxListResponse,
+    TaxCreateRequest,
+    TemplateResponse,
+    TemplateListResponse,
+    TemplateCreateRequest,
 )
 from app.schemas.advanced import (
     BulkOperationRequest,
@@ -94,7 +105,7 @@ def _invoice_to_response(inv) -> InvoiceResponse:
         number=inv.invoice_number,
         subscription_id=inv.subscription_id,
         customer_id=inv.customer_id,
-        subscriptionName=inv.subscription.name if inv.subscription else "Unknown",
+        subscriptionName=inv.subscription.number if inv.subscription else "Unknown",
         customerName=inv.customer.name if inv.customer else "Unknown",
         customerEmail=inv.customer.email if inv.customer else "",
         customerAddress="",
@@ -108,7 +119,7 @@ def _invoice_to_response(inv) -> InvoiceResponse:
         amountPaid=inv.amount_paid,
         amountDue=inv.amount_due,
         createdAt=inv.created_at,
-        updatedAt=inv.updated_at or inv.created_at,
+        updatedAt=inv.created_at,
         lineItems=[
             InvoiceLineResponse(
                 id=l.id,
@@ -131,10 +142,12 @@ def _payment_to_response(p) -> PaymentResponse:
     return PaymentResponse(
         id=p.id,
         invoiceId=p.invoice_id,
+        invoiceNumber=p.invoice.invoice_number if p.invoice else "Unknown",
         customerId=p.customer_id,
+        customerName=p.customer.name if p.customer else "Unknown",
         method=p.method,
         amount=p.amount,
-        paidAt=p.paid_at,
+        date=p.paid_at,
         createdAt=p.created_at,
     )
 
@@ -190,6 +203,43 @@ async def create_invoice(
     svc = InvoiceService(db, user.tenant_id)
     inv = await svc.generate_from_subscription(body.subscription_id)
     return {"data": _invoice_to_response(inv)}
+
+
+@router.get("/invoices/unpaid")
+async def list_unpaid_invoices(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    search: Optional[str] = Query(None),
+) -> dict:
+    """List manual payment candidates (confirmed/overdue with amount_due > 0)."""
+    from sqlalchemy import select, or_
+    from app.models.invoice import Invoice
+    from app.core.enums import InvoiceStatus
+
+    q = select(Invoice).where(
+        Invoice.tenant_id == user.tenant_id,
+        Invoice.status.in_([InvoiceStatus.CONFIRMED, InvoiceStatus.OVERDUE]),
+        (Invoice.total - Invoice.amount_paid) > 0
+    )
+    
+    if search:
+        q = q.where(Invoice.invoice_number.ilike(f"%{search}%"))
+
+    res = await db.execute(q)
+    items = res.scalars().all()
+    
+    return {
+        "data": [
+            UnpaidInvoiceOption(
+                id=i.id,
+                number=i.invoice_number,
+                customerName=i.customer.name if i.customer else "Unknown",
+                total=i.total,
+                amountDue=i.amount_due,
+                isOverdue=(i.status == InvoiceStatus.OVERDUE)
+            ) for i in items
+        ]
+    }
 
 
 @router.get("/invoices/{invoice_id}")
@@ -297,6 +347,9 @@ async def bulk_send_invoices(
     return {"sent": sent, "count": len(sent)}
 
 
+    return {"sent": sent, "count": len(sent)}
+
+
 # ═══════════════════════════════════════════════════════════════
 # PayPal Payment Gateway
 # ═══════════════════════════════════════════════════════════════
@@ -364,7 +417,7 @@ async def record_payment(
         invoice_id=body.invoice_id,
         amount=body.amount,
         method=body.method,
-        paid_at=body.paid_at,
+        paid_at=body.date,
     )
     return _payment_to_response(payment)
 
@@ -380,9 +433,54 @@ async def list_payments(
     svc = PaymentService(db, user.tenant_id)
     items, total = await svc.list_payments(offset=offset, limit=limit)
     return PaymentListResponse(
-        items=[_payment_to_response(p) for p in items],
-        total=total,
+        data=[_payment_to_response(p) for p in items],
+        meta={
+            "total": total,
+            "page": (offset // limit) + 1,
+            "limit": limit
+        },
     )
+
+
+@router.get("/payments/summary")
+async def get_payment_summary(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> dict:
+    """Aggregated financial summary (tenant-wide)."""
+    from sqlalchemy import select, func, or_
+    from app.models.invoice import Invoice
+    from app.models.payment import Payment
+    from app.core.enums import InvoiceStatus
+
+    # Total Received
+    reveived_q = select(func.sum(Payment.amount)).where(Payment.tenant_id == user.tenant_id)
+    received_res = await db.execute(reveived_q)
+    total_received = received_res.scalar() or Decimal("0")
+
+    # Outstanding (confirmed/partial)
+    outstanding_q = select(func.sum(Invoice.total - Invoice.amount_paid)).where(
+        Invoice.tenant_id == user.tenant_id,
+        Invoice.status == InvoiceStatus.CONFIRMED
+    )
+    outstanding_res = await db.execute(outstanding_q)
+    total_outstanding = outstanding_res.scalar() or Decimal("0")
+
+    # Overdue
+    overdue_q = select(func.sum(Invoice.total - Invoice.amount_paid)).where(
+        Invoice.tenant_id == user.tenant_id,
+        Invoice.status == InvoiceStatus.OVERDUE
+    )
+    overdue_res = await db.execute(overdue_q)
+    total_overdue = overdue_res.scalar() or Decimal("0")
+
+    return {
+        "data": PaymentSummary(
+            totalReceived=total_received,
+            outstanding=total_outstanding,
+            overdue=total_overdue
+        )
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -527,16 +625,16 @@ async def get_company_dashboard(
     # Mocks for charts until historical pipelines run
     v = float(raw_metrics.get("MRR", {}).get("raw_value", 0))
     mrr_chart = [
-        {"month": "Jan", "mrr": max(0, v - 100)},
-        {"month": "Feb", "mrr": max(0, v - 50)},
-        {"month": "Mar", "mrr": max(0, v - 20)},
-        {"month": "Apr", "mrr": v},
+        {"month": "Jan", "mrr": max(0, int(v - 100))},
+        {"month": "Feb", "mrr": max(0, int(v - 50))},
+        {"month": "Mar", "mrr": max(0, int(v - 20))},
+        {"month": "Apr", "mrr": int(v)},
     ]
     subs_chart = [
-        {"month": "Jan", "count": max(0, subs_count - 2)},
-        {"month": "Feb", "count": max(0, subs_count - 1)},
-        {"month": "Mar", "count": max(0, subs_count)},
-        {"month": "Apr", "count": subs_count},
+        {"month": "Jan", "count": max(0, int(subs_count - 2))},
+        {"month": "Feb", "count": max(0, int(subs_count - 1))},
+        {"month": "Mar", "count": max(0, int(subs_count))},
+        {"month": "Apr", "count": int(subs_count)},
     ]
 
     return CompanyDashboardResponse(
@@ -672,8 +770,8 @@ async def list_products(
                 "id": str(p.id),
                 "name": p.name,
                 "type": p.type,
-                "salesPrice": float(p.sales_price),
-                "costPrice": float(p.cost_price),
+                "sales_price": float(p.sales_price),
+                "cost_price": float(p.cost_price),
                 "variants": [
                     {
                         "id": str(v.id), 
@@ -682,7 +780,7 @@ async def list_products(
                         "extra_price": float(v.extra_price)
                     } for v in p.variants
                 ] if p.variants else [],
-                "createdAt": p.created_at.isoformat() if p.created_at else "",
+                "created_at": p.created_at.isoformat() if p.created_at else "",
             }
             for p in items
         ],
@@ -1088,3 +1186,121 @@ async def list_customers(
         }
     }
 
+# ═══════════════════════════════════════════════════════════════
+# Discount CRUD
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/discounts", response_model=DiscountListResponse)
+async def list_discounts(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
+) -> DiscountListResponse:
+    from app.repositories.billing import DiscountRepository
+    repo = DiscountRepository(db, user.tenant_id)
+    items = await repo.find_all(offset=offset, limit=limit)
+    total = await repo.count()
+    return DiscountListResponse(
+        data=[DiscountResponse(**(i.__dict__)) for i in items],
+        meta={"total": total, "page": (offset // limit) + 1, "limit": limit}
+    )
+
+@router.post("/discounts", status_code=201)
+async def create_discount(
+    body: DiscountCreateRequest,
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> DiscountResponse:
+    from app.repositories.billing import DiscountRepository
+    repo = DiscountRepository(db, user.tenant_id)
+    discount = await repo.create({**body.model_dump(), "tenant_id": user.tenant_id})
+    return DiscountResponse(**(discount.__dict__))
+
+@router.delete("/discounts/{id}")
+async def delete_discount(
+    id: UUID,
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    from app.repositories.billing import DiscountRepository
+    repo = DiscountRepository(db, user.tenant_id)
+    await repo.delete(id)
+    return {"status": "success"}
+
+# ═══════════════════════════════════════════════════════════════
+# Tax CRUD
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/taxes", response_model=TaxListResponse)
+async def list_taxes(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
+) -> TaxListResponse:
+    from app.repositories.billing import TaxRepository
+    repo = TaxRepository(db, user.tenant_id)
+    items = await repo.find_all(offset=offset, limit=limit)
+    total = await repo.count()
+    return TaxListResponse(
+        data=[TaxResponse(**(i.__dict__)) for i in items],
+        meta={"total": total, "page": (offset // limit) + 1, "limit": limit}
+    )
+
+@router.post("/taxes", status_code=201)
+async def create_tax(
+    body: TaxCreateRequest,
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> TaxResponse:
+    from app.repositories.billing import TaxRepository
+    repo = TaxRepository(db, user.tenant_id)
+    tax = await repo.create({**body.model_dump(), "tenant_id": user.tenant_id})
+    return TaxResponse(**(tax.__dict__))
+
+# ═══════════════════════════════════════════════════════════════
+# Quotation Templates
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/templates", response_model=TemplateListResponse)
+async def list_templates(
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
+) -> TemplateListResponse:
+    from app.repositories.billing import QuotationTemplateRepository
+    repo = QuotationTemplateRepository(db, user.tenant_id)
+    items = await repo.find_all(offset=offset, limit=limit)
+    total = await repo.count()
+    return TemplateListResponse(
+        data=[
+            TemplateResponse(
+                id=i.id,
+                name=i.name,
+                validity_days=i.validity_days,
+                plan_id=i.plan_id,
+                plan_name=i.plan.name if i.plan else "Unknown",
+                created_at=i.created_at
+            ) for i in items
+        ],
+        meta={"total": total, "page": (offset // limit) + 1, "limit": limit}
+    )
+
+@router.post("/templates", status_code=201)
+async def create_template(
+    body: TemplateCreateRequest,
+    user: TokenPayload = Depends(require_company),
+    db: AsyncSession = Depends(get_tenant_session),
+) -> TemplateResponse:
+    from app.repositories.billing import QuotationTemplateRepository
+    repo = QuotationTemplateRepository(db, user.tenant_id)
+    item = await repo.create({**body.model_dump(), "tenant_id": user.tenant_id})
+    return TemplateResponse(
+        id=item.id,
+        name=item.name,
+        validity_days=item.validity_days,
+        plan_id=item.plan_id,
+        created_at=item.created_at
+    )

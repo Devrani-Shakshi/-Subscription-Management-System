@@ -227,8 +227,10 @@ class PortalService(BaseService):
     ) -> PortalPaymentListResponse:
         """List payment history for the portal user."""
         # Payments with invoice join for invoice_number
+        from sqlalchemy.orm import joinedload
         query = (
             select(Payment)
+            .options(joinedload(Payment.invoice))
             .where(
                 Payment.customer_id == self._user_id,
                 Payment.tenant_id == self._tenant_id,
@@ -239,7 +241,7 @@ class PortalService(BaseService):
             .limit(limit)
         )
         result = await self.db.execute(query)
-        payments = result.scalars().all()
+        payments = result.unique().scalars().all()
 
         # Count total
         count_result = await self.db.execute(
@@ -264,18 +266,14 @@ class PortalService(BaseService):
 
         items = []
         for p in payments:
-            inv_number = None
-            if p.invoice:
-                inv_number = p.invoice.invoice_number
             items.append(
                 PortalPaymentResponse(
                     id=p.id,
                     amount=p.amount,
-                    method=p.method,
-                    invoice_id=p.invoice_id,
-                    invoice_number=inv_number,
-                    paid_at=p.paid_at,
-                    created_at=p.created_at,
+                    method=p.method.value if hasattr(p.method, "value") else str(p.method),
+                    invoiceNumber=p.invoice.invoice_number if p.invoice else "Unknown",
+                    date=p.paid_at,
+                    status="success",
                 )
             )
 

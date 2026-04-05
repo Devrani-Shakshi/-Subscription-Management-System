@@ -228,6 +228,30 @@ export function useMyInvoices(filters: PortalInvoiceFilters) {
   });
 }
 
+export function useDownloadPortalInvoicePdf() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.get(`/portal/invoices/${id}/pdf`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
+    onSuccess: () => {
+      toast.success('PDF downloaded successfully');
+    },
+    onError: () => {
+      toast.error('Failed to download PDF');
+    }
+  });
+}
+
 /* ── My Payments ─────────────────────────────────── */
 
 export function useMyPayments() {
@@ -249,8 +273,8 @@ export function usePortalPayment() {
   return useMutation({
     mutationFn: async (payload: PortalPaymentPayload) => {
       const { data } = await api.post<ApiResponse<{ success: boolean }>>(
-        '/portal/payments',
-        payload
+        `/portal/invoices/${payload.invoiceId}/pay`,
+        { method: 'card', payment_token: 'mock-token' }
       );
       return data.data;
     },

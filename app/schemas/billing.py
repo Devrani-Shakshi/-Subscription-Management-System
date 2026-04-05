@@ -22,6 +22,8 @@ from app.core.enums import (
     DunningStatus,
     InvoiceStatus,
     PaymentMethod,
+    DiscountType,
+    DiscountAppliesTo,
 )
 
 _HTML_TAG = re.compile(r"<[^>]+>")
@@ -109,7 +111,8 @@ class PaymentCreateRequest(BaseModel):
     invoice_id: UUID
     amount: Decimal
     method: PaymentMethod
-    paid_at: Optional[datetime] = None
+    date: Optional[datetime] = None
+    notes: str = ""
 
     @field_validator("amount", mode="before")
     @classmethod
@@ -123,16 +126,19 @@ class PaymentCreateRequest(BaseModel):
 class PaymentResponse(BaseModel):
     id: UUID
     invoiceId: UUID
+    invoiceNumber: str = ""
     customerId: UUID
+    customerName: str = ""
     method: PaymentMethod
     amount: Decimal
-    paidAt: datetime
+    date: datetime
+    notes: str = ""
     createdAt: datetime
 
 
 class PaymentListResponse(BaseModel):
-    items: list[PaymentResponse]
-    total: int
+    data: list[PaymentResponse]
+    meta: dict[str, int]
 
 
 class PortalPayRequest(BaseModel):
@@ -160,3 +166,95 @@ class DunningScheduleResponse(BaseModel):
 class DunningScheduleListResponse(BaseModel):
     items: list[DunningScheduleResponse]
     total: int
+
+
+class UnpaidInvoiceOption(BaseModel):
+    id: UUID
+    number: str
+    customerName: str
+    total: Decimal
+    amountDue: Decimal
+    isOverdue: bool
+
+
+class PaymentSummary(BaseModel):
+    totalReceived: Decimal
+    outstanding: Decimal
+    overdue: Decimal
+
+
+# ── Discount Schemas ─────────────────────────────────────────────
+
+class DiscountResponse(BaseModel):
+    id: UUID
+    name: str
+    type: DiscountType
+    value: Decimal
+    min_purchase: Decimal
+    min_qty: int
+    start_date: date
+    end_date: Optional[date]
+    usage_limit: Optional[int]
+    used_count: int
+    applies_to: DiscountAppliesTo
+    created_at: datetime
+
+
+class DiscountListResponse(BaseModel):
+    data: list[DiscountResponse]
+    meta: dict[str, int]
+
+
+class DiscountCreateRequest(BaseModel):
+    name: str
+    type: DiscountType
+    value: Decimal
+    min_purchase: Decimal = Decimal("0")
+    min_qty: int = 1
+    start_date: date
+    end_date: Optional[date] = None
+    usage_limit: Optional[int] = None
+    applies_to: DiscountAppliesTo
+
+
+# ── Tax Schemas ──────────────────────────────────────────────────
+
+class TaxResponse(BaseModel):
+    id: UUID
+    name: str
+    rate: Decimal
+    type: str
+    created_at: datetime
+
+
+class TaxListResponse(BaseModel):
+    data: list[TaxResponse]
+    meta: dict[str, int]
+
+
+class TaxCreateRequest(BaseModel):
+    name: str
+    rate: Decimal
+    type: str
+
+
+# ── Quotation Template Schemas ───────────────────────────────────
+
+class TemplateResponse(BaseModel):
+    id: UUID
+    name: str
+    validity_days: int
+    plan_id: UUID
+    plan_name: str = ""
+    created_at: datetime
+
+
+class TemplateListResponse(BaseModel):
+    data: list[TemplateResponse]
+    meta: dict[str, int]
+
+
+class TemplateCreateRequest(BaseModel):
+    name: str
+    validity_days: int = 30
+    plan_id: UUID

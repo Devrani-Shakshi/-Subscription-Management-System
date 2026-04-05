@@ -42,7 +42,7 @@ class Discount(BaseModel):
     )
     min_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     usage_limit: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True
     )

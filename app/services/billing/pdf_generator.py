@@ -81,76 +81,106 @@ class InvoicePDFGenerator:
     ) -> bytes:
         """
         Build PDF content.
-
-        Uses a simple text-based format that works without
-        external dependencies. In production, replace with
-        weasyprint or reportlab.
+        Uses reportlab to generate an actual binary PDF.
         """
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import letter
+        
         buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=letter)
+        width, height = letter
 
         # Header
+        c.setFont("Helvetica-Bold", 16)
+        c.setFillColor(primary_color)
+        c.drawString(50, height - 50, tenant_name)
+        
+        c.setFillColor("black")
+        c.setFont("Helvetica", 12)
+        c.drawString(50, height - 75, f"INVOICE: {invoice.invoice_number}")
+        
         status_val = invoice.status.value if hasattr(invoice.status, 'value') else str(invoice.status)
-        lines = [
-            f"{'=' * 60}",
-            f"  INVOICE: {invoice.invoice_number}",
-            f"  {tenant_name}",
-            f"{'=' * 60}",
-            "",
-            f"  Status:     {status_val.upper()}",
-            f"  Due Date:   {invoice.due_date}",
-            f"  Customer:   {invoice.customer_id}",
-            "",
-            f"{'─' * 60}",
-            f"  {'Product':<20} {'Qty':>5} {'Unit Price':>12} {'Total':>12}",
-            f"{'─' * 60}",
-        ]
+        c.drawString(50, height - 95, f"Status: {status_val.upper()}")
+        c.drawString(50, height - 110, f"Due Date: {invoice.due_date}")
+        c.drawString(50, height - 125, f"Customer ID: {str(invoice.customer_id)}")
 
-        # Line items — avoid triggering lazy load on async session
+        y = height - 170
+
+        # Table Header
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(50, y, "Product / Description")
+        c.drawString(300, y, "Qty")
+        c.drawString(380, y, "Unit Price")
+        c.drawString(480, y, "Total")
+        y -= 10
+        c.setLineWidth(1)
+        c.line(50, y, width - 50, y)
+        y -= 20
+
+        # Line items
+        c.setFont("Helvetica", 10)
         from sqlalchemy import inspect as sa_inspect
         inst = sa_inspect(invoice)
         invoice_lines = inst.dict.get('lines', []) or []
+        
         for line in invoice_lines:
             unit_price = Decimal(str(line.unit_price))
             line_total = unit_price * line.qty
-            lines.append(
-                f"  {str(line.product_id)[:18]:<20} "
-                f"{line.qty:>5} "
-                f"${unit_price:>10.2f} "
-                f"${line_total:>10.2f}"
-            )
+            c.drawString(50, y, str(line.product_id)[:30])
+            c.drawString(300, y, str(line.qty))
+            c.drawString(380, y, f"${unit_price:.2f}")
+            c.drawString(480, y, f"${line_total:.2f}")
+            y -= 20
+            
+            if y < 100:
+                c.showPage()
+                y = height - 50
+                c.setFont("Helvetica", 10)
 
-        lines.append(f"{'─' * 60}")
-        lines.append(f"  {'Subtotal':>40} ${Decimal(str(invoice.subtotal)):>10.2f}")
+        y -= 10
+        c.line(50, y, width - 50, y)
+        y -= 20
+
+        # Totals
+        c.drawString(380, y, "Subtotal:")
+        c.drawString(480, y, f"${Decimal(str(invoice.subtotal)):.2f}")
+        y -= 20
 
         if Decimal(str(invoice.discount_total)) > 0:
-            lines.append(
-                f"  {'Discount':>40} -${Decimal(str(invoice.discount_total)):>9.2f}"
-            )
+            c.drawString(380, y, "Discount:")
+            c.drawString(480, y, f"-${Decimal(str(invoice.discount_total)):.2f}")
+            y -= 20
 
         if Decimal(str(invoice.tax_total)) > 0:
-            lines.append(
-                f"  {'Tax':>40} ${Decimal(str(invoice.tax_total)):>10.2f}"
-            )
+            c.drawString(380, y, "Tax:")
+            c.drawString(480, y, f"${Decimal(str(invoice.tax_total)):.2f}")
+            y -= 20
 
-        lines.append(f"{'═' * 60}")
-        lines.append(f"  {'TOTAL':>40} ${Decimal(str(invoice.total)):>10.2f}")
-        lines.append(f"  {'Amount Paid':>40} ${Decimal(str(invoice.amount_paid)):>10.2f}")
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(380, y, "TOTAL:")
+        c.drawString(480, y, f"${Decimal(str(invoice.total)):.2f}")
+        y -= 20
+
+        c.setFont("Helvetica", 10)
+        c.drawString(380, y, "Amount Paid:")
+        c.drawString(480, y, f"${Decimal(str(invoice.amount_paid)):.2f}")
+        y -= 20
+
         amount_due = Decimal(str(invoice.total)) - Decimal(str(invoice.amount_paid))
-        lines.append(
-            f"  {'Amount Due':>40} ${amount_due:>10.2f}"
-        )
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(380, y, "Amount Due:")
+        c.drawString(480, y, f"${amount_due:.2f}")
+        y -= 40
 
+        # Internal notes
         if mode == "internal":
-            lines.append("")
-            lines.append(f"{'─' * 60}")
-            lines.append("  INTERNAL NOTES (not visible to customer)")
-            lines.append(f"  Discount ID: {invoice.discount_id or 'None'}")
-            lines.append(
-                f"  Subscription: {invoice.subscription_id}"
-            )
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(50, y, "INTERNAL NOTES (not visible to customer)")
+            y -= 15
+            c.setFont("Helvetica", 10)
+            c.drawString(50, y, f"Discount ID: {invoice.discount_id or 'None'}")
+            y -= 15
+            c.drawString(50, y, f"Subscription: {invoice.subscription_id}")
 
-        lines.append(f"{'═' * 60}")
-
-        content = "\n".join(lines)
-        buf.write(content.encode("utf-8"))
+        c.save()
         return buf.getvalue()

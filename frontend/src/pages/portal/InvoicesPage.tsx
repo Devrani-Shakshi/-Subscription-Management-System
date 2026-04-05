@@ -12,7 +12,7 @@ import {
   MobileCard,
   Pagination,
 } from '@/components/ui';
-import { useMyInvoices } from '@/hooks/usePortal';
+import { useMyInvoices, useDownloadPortalInvoicePdf } from '@/hooks/usePortal';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { PortalPaymentModal } from './PortalPaymentModal';
@@ -39,6 +39,8 @@ export const InvoicesPage: React.FC = () => {
   const [filters, setFilters] = useState<PortalInvoiceFilters>({ page: 1, limit: 10 });
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [payInvoice, setPayInvoice] = useState<PortalInvoice | null>(null);
+  
+  const download = useDownloadPortalInvoicePdf();
 
   const { data, isLoading, isError, refetch } = useMyInvoices({
     ...filters,
@@ -91,7 +93,7 @@ export const InvoicesPage: React.FC = () => {
         }
         if (canDownload) {
           return (
-            <Button variant="ghost" size="sm" icon={<Download className="h-3.5 w-3.5" />}>
+            <Button variant="ghost" size="sm" icon={<Download className="h-3.5 w-3.5" />} loading={download.isPending} onClick={() => download.mutate(r.id)}>
               Download
             </Button>
           );
@@ -161,6 +163,8 @@ export const InvoicesPage: React.FC = () => {
                   key={inv.id}
                   invoice={inv}
                   onPay={() => setPayInvoice(inv)}
+                  onDownload={() => download.mutate(inv.id)}
+                  isDownloading={download.isPending}
                 />
               ))}
             </div>
@@ -194,9 +198,11 @@ export const InvoicesPage: React.FC = () => {
 interface InvoiceMobileCardProps {
   invoice: PortalInvoice;
   onPay: () => void;
+  onDownload: () => void;
+  isDownloading: boolean;
 }
 
-const InvoiceMobileCard: React.FC<InvoiceMobileCardProps> = ({ invoice, onPay }) => {
+const InvoiceMobileCard: React.FC<InvoiceMobileCardProps> = ({ invoice, onPay, onDownload, isDownloading }) => {
   const isOverdue = invoice.status === 'overdue';
   const isPaid = invoice.status === 'paid';
   const canPay = ['overdue', 'confirmed', 'draft', 'pending'].includes(invoice.status);
@@ -228,7 +234,7 @@ const InvoiceMobileCard: React.FC<InvoiceMobileCardProps> = ({ invoice, onPay })
           </Button>
         )}
         {isPaid && (
-          <Button variant="ghost" size="sm" icon={<Download className="h-4 w-4" />}>
+          <Button variant="ghost" size="sm" icon={<Download className="h-4 w-4" />} loading={isDownloading} onClick={onDownload}>
             Download PDF
           </Button>
         )}

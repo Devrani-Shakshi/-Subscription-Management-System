@@ -19,8 +19,6 @@ export const NAV_CONFIG: Record<Role, NavItem[]> = {
     { label: 'Taxes', path: '/company/taxes', icon: 'Receipt' },
     { label: 'Templates', path: '/company/templates', icon: 'FileCode' },
     { label: 'Churn', path: '/company/churn', icon: 'UserMinus' },
-    { label: 'Dunning', path: '/company/dunning', icon: 'AlertCircle' },
-    { label: 'Revenue', path: '/company/revenue', icon: 'TrendingUp' },
     { label: 'Audit', path: '/company/audit', icon: 'ScrollText' },
   ],
   portal_user: [

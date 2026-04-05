@@ -115,7 +115,7 @@ def _invoice_to_response(inv) -> InvoiceResponse:
         amountPaid=inv.amount_paid,
         amountDue=inv.amount_due,
         createdAt=inv.created_at,
-        updatedAt=inv.updated_at or inv.created_at,
+        updatedAt=inv.created_at,
         lineItems=[
             InvoiceLineResponse(
                 id=l.id,

@@ -19,6 +19,7 @@ from app.models.invoice_line import InvoiceLine
 from app.models.payment import Payment
 from app.models.subscription import Subscription
 from app.models.subscription_line import SubscriptionLine
+from app.models.quotation_template import QuotationTemplate
 from app.models.tax import Tax
 from app.repositories.base import BaseRepository
 
@@ -163,6 +164,18 @@ class SubscriptionLineRepository(BaseRepository[SubscriptionLine]):
 
 class DiscountRepository(BaseRepository[Discount]):
     model = Discount
+
+
+# ── Quotation Template Repository ────────────────────────────────
+
+class QuotationTemplateRepository(BaseRepository[QuotationTemplate]):
+    model = QuotationTemplate
+
+    def _base_query(self) -> Select[tuple[QuotationTemplate]]:
+        from sqlalchemy.orm import joinedload
+        return super()._base_query().options(
+            joinedload(QuotationTemplate.plan)
+        )
 
 
 # ═══════════════════════════════════════════════════════════════

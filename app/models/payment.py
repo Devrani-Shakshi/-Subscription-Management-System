@@ -18,6 +18,7 @@ from app.models.base import BaseModel
 
 if TYPE_CHECKING:
     from app.models.invoice import Invoice
+    from app.models.user import User
 
 
 class Payment(BaseModel):
@@ -58,6 +59,9 @@ class Payment(BaseModel):
     # ── relationships ────────────────────────────────────────────
     invoice: Mapped["Invoice"] = relationship(
         "Invoice", back_populates="payments", lazy="selectin"
+    )
+    customer: Mapped["User"] = relationship(
+        "User", foreign_keys=[customer_id], lazy="selectin"
     )
 
     def __repr__(self) -> str:
